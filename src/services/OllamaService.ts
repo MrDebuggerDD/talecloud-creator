@@ -1,4 +1,3 @@
-
 interface OllamaRequest {
   model: string;
   prompt: string;
@@ -16,6 +15,10 @@ interface OllamaResponse {
   created_at: string;
   response: string;
   done: boolean;
+}
+
+interface ElevenLabsResponse {
+  audioUrl: string;
 }
 
 export const generateStory = async (
@@ -106,13 +109,74 @@ export const generateImage = async (prompt: string, genre: string): Promise<stri
   }
 }
 
-// New function for text-to-speech generation (currently a placeholder)
-export const generateAudio = async (text: string, voice: string = "default"): Promise<string> => {
-  console.log("Audio generation requested for text of length:", text.length);
+export const generateAudio = async (text: string, voice: string = "onyx"): Promise<string> => {
+  try {
+    console.log("Audio generation requested for text of length:", text.length);
+    
+    // Get ElevenLabs API key from localStorage (temporary solution)
+    const apiKey = localStorage.getItem('elevenlabs_api_key');
+    
+    if (!apiKey) {
+      console.warn("No ElevenLabs API key found. Please add your API key in settings.");
+      return "";
+    }
+    
+    // Truncate text if it's too long (ElevenLabs has character limits)
+    const truncatedText = text.length > 5000 ? text.substring(0, 5000) : text;
+    
+    const voiceId = getVoiceId(voice);
+    const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "xi-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        text: truncatedText,
+        model_id: "eleven_monolingual_v1",
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.5,
+        },
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
+    }
+    
+    // The response is the audio file itself
+    const blob = await response.blob();
+    const audioUrl = URL.createObjectURL(blob);
+    
+    return audioUrl;
+  } catch (error) {
+    console.error("Error generating audio:", error);
+    return "";
+  }
+}
+
+const getVoiceId = (voice: string): string => {
+  const voiceMap: Record<string, string> = {
+    onyx: "onyx", // Default male voice
+    alloy: "alloy", // Default female voice
+    echo: "echo", // Default neutral voice
+    fable: "fable", // Child-like voice
+    nova: "nova", // Expressive female voice
+    shimmer: "shimmer", // Warm female voice
+    // Premium voices
+    rachel: "21m00Tcm4TlvDq8ikWAM", // Rachel
+    domi: "AZnzlk1XvdvUeBnXmlld", // Domi
+    bella: "EXAVITQu4vr4xnSDxMaL", // Bella
+    antoni: "ErXwobaYiN019PkySvjV", // Antoni
+    elli: "MF3mGyEYCl7XYWbV9V6O", // Elli
+    josh: "TxGEqnHWrfWFTfGW9XjX", // Josh
+    arnold: "VR6AewLTigWG4xSOukaG", // Arnold
+    adam: "pNInz6obpgDQGcFmaJgB", // Adam
+    sam: "yoZ06aMxZJJ28mfd3POQ", // Sam
+  };
   
-  // This is a placeholder for future audio integration
-  // In a real implementation, you would call a TTS API like ElevenLabs, Bark, or local TTS service
-  
-  // For now, return a placeholder audio URL
-  return "";  // Empty string means no audio available yet
+  return voiceMap[voice] || "onyx";
 }

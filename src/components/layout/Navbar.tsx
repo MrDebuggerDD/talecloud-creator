@@ -2,7 +2,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Sparkles, BookOpen, Mic } from 'lucide-react';
+import { Sparkles, BookOpen } from 'lucide-react';
+import ApiKeySettings from '@/components/settings/ApiKeySettings';
 
 const Navbar: React.FC = () => {
   return (
@@ -32,6 +33,8 @@ const Navbar: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-3">
+          <ApiKeySettings />
+          
           <Button asChild variant="ghost" className="hidden md:flex">
             <Link to="/login">
               Login
