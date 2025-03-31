@@ -33,7 +33,12 @@ const Navbar: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-3">
-          <ApiKeySettings />
+          <div className="relative">
+            <ApiKeySettings />
+            <div className="tooltip-text absolute right-0 -bottom-10 bg-black text-white text-xs rounded py-1 px-2 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity">
+              Configure API Keys
+            </div>
+          </div>
           
           <Button asChild variant="ghost" className="hidden md:flex">
             <Link to="/login">
