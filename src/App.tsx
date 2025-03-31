@@ -10,24 +10,27 @@ import Library from "./pages/Library";
 import About from "./pages/About";
 import Story from "./pages/Story";
 import NotFound from "./pages/NotFound";
+import { StoryProvider } from "./context/StoryContext";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/create" element={<Create />} />
-          <Route path="/library" element={<Library />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/story/:id" element={<Story />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <StoryProvider>
+          <Toaster />
+          <Sonner />
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/create" element={<Create />} />
+            <Route path="/library" element={<Library />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/story/:id" element={<Story />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </StoryProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

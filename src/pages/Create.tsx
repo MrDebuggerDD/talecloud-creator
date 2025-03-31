@@ -5,6 +5,11 @@ import StoryForm from '@/components/create/StoryForm';
 import { Sparkles, BookText, ImageIcon, Mic } from 'lucide-react';
 
 const Create: React.FC = () => {
+  const examplePrompts = [
+    "A young wizard discovers an ancient spell book that allows communication with animals, but each time it's used, a mysterious shadow grows larger...",
+    "On their 16th birthday, a teenager receives a mysterious letter revealing they are the heir to an underwater kingdom that's been hidden for centuries."
+  ];
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8 md:py-12">
@@ -49,22 +54,22 @@ const Create: React.FC = () => {
             <h3 className="font-medium text-gray-900 mb-3">Need inspiration?</h3>
             <p className="text-gray-600 mb-4">Try one of these prompts:</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div 
-                className="bg-white p-3 rounded border border-gray-200 cursor-pointer hover:bg-tale-light transition-colors"
-                onClick={() => {
-                  // This would set the prompt text
-                }}
-              >
-                <p className="text-sm text-gray-800">A young wizard discovers an ancient spell book that allows communication with animals, but each time it's used, a mysterious shadow grows larger...</p>
-              </div>
-              <div 
-                className="bg-white p-3 rounded border border-gray-200 cursor-pointer hover:bg-tale-light transition-colors"
-                onClick={() => {
-                  // This would set the prompt text
-                }}
-              >
-                <p className="text-sm text-gray-800">On their 16th birthday, a teenager receives a mysterious letter revealing they are the heir to an underwater kingdom that's been hidden for centuries.</p>
-              </div>
+              {examplePrompts.map((prompt, index) => (
+                <div 
+                  key={index}
+                  className="bg-white p-3 rounded border border-gray-200 cursor-pointer hover:bg-tale-light transition-colors"
+                  onClick={() => {
+                    // This would set the prompt text in the form
+                    const form = document.getElementById("prompt") as HTMLTextAreaElement;
+                    if (form) {
+                      form.value = prompt;
+                      form.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                  }}
+                >
+                  <p className="text-sm text-gray-800">{prompt}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>

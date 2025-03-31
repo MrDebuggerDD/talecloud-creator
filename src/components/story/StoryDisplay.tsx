@@ -2,6 +2,9 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Play, Pause, Volume2, Save, Share2, Heart } from 'lucide-react';
+import { useStory } from '@/context/StoryContext';
+import { useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface StoryDisplayProps {
   title: string;
@@ -14,6 +17,13 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
   const [isPlaying, setIsPlaying] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
   const [currentParagraph, setCurrentParagraph] = useState(0);
+  const { id } = useParams<{ id: string }>();
+  const { currentStory, savedStories, saveStory } = useStory();
+
+  // Find the full story object
+  const storyObj = currentStory?.id === id 
+    ? currentStory 
+    : savedStories.find(s => s.id === id);
 
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
@@ -22,6 +32,33 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
 
   const toggleFavorite = () => {
     setIsFavorited(!isFavorited);
+    if (storyObj) {
+      saveStory(storyObj);
+    }
+  };
+
+  const handleSave = () => {
+    if (storyObj) {
+      saveStory(storyObj);
+      toast.success('Story saved successfully!');
+    }
+  };
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator
+        .share({
+          title: title,
+          text: 'Check out this amazing AI-generated story!',
+          url: window.location.href,
+        })
+        .then(() => console.log('Successful share'))
+        .catch((error) => console.log('Error sharing', error));
+    } else {
+      // Fallback
+      navigator.clipboard.writeText(window.location.href);
+      toast.success('Link copied to clipboard!');
+    }
   };
 
   return (
@@ -58,10 +95,10 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
             <Heart className={`h-4 w-4 mr-1 ${isFavorited ? 'fill-red-500 text-red-500' : ''}`} /> 
             {isFavorited ? 'Favorited' : 'Favorite'}
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleSave}>
             <Save className="h-4 w-4 mr-1" /> Save
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleShare}>
             <Share2 className="h-4 w-4 mr-1" /> Share
           </Button>
         </div>

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PenLine, Wand2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useStory } from '@/context/StoryContext';
 
 const StoryForm: React.FC = () => {
   const [prompt, setPrompt] = useState('');
@@ -15,7 +16,9 @@ const StoryForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { generateNewStory } = useStory();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!prompt.trim()) {
@@ -25,14 +28,18 @@ const StoryForm: React.FC = () => {
     
     setIsLoading(true);
     
-    // This would normally connect to your backend API
-    // For now, we'll simulate a delay and success
-    setTimeout(() => {
-      toast.success("Your story is being generated!");
+    try {
+      await generateNewStory(title, prompt, genre, length);
+    } catch (error) {
+      console.error("Error generating story:", error);
+      toast.error("Failed to generate story. Please try again.");
+    } finally {
       setIsLoading(false);
-      // Here you would typically navigate to a results page
-      // or update the UI with the generated content
-    }, 2000);
+    }
+  };
+
+  const handleInsertPrompt = (examplePrompt: string) => {
+    setPrompt(examplePrompt);
   };
 
   return (
