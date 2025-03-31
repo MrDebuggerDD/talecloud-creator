@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -9,6 +10,8 @@ interface Story {
   images: string[];
   audioUrl?: string;
   createdAt: Date;
+  genre: string;
+  prompt: string;
 }
 
 interface StoryContextType {
@@ -16,6 +19,7 @@ interface StoryContextType {
   savedStories: Story[];
   generateNewStory: (title: string, prompt: string, genre: string, length: string) => Promise<void>;
   saveStory: (story: Story) => void;
+  isGenerating: boolean;
 }
 
 const StoryContext = createContext<StoryContextType | undefined>(undefined);
@@ -31,6 +35,7 @@ export const useStory = () => {
 export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentStory, setCurrentStory] = useState<Story | null>(null);
   const [savedStories, setSavedStories] = useState<Story[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
   const navigate = useNavigate();
 
   // Load saved stories from localStorage on initial render
@@ -47,6 +52,7 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setSavedStories(storiesWithDates);
       } catch (error) {
         console.error('Failed to parse saved stories:', error);
+        toast.error('Failed to load saved stories');
       }
     }
   }, []);
@@ -59,9 +65,18 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [savedStories]);
 
   const generateNewStory = async (title: string, prompt: string, genre: string, length: string) => {
+    if (isGenerating) {
+      toast.info('A story is already being generated');
+      return;
+    }
+    
+    setIsGenerating(true);
+    
     try {
+      toast.info('Generating your story...');
+      
       // Import the service dynamically to avoid circular dependencies
-      const { generateStory, generateImage } = await import('../services/OllamaService');
+      const { generateStory, generateImage, generateAudio } = await import('../services/OllamaService');
       
       // Generate content from Ollama
       const content = await generateStory(prompt, genre, length);
@@ -72,26 +87,43 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         .filter(p => p.trim().length > 0);
       
       // Generate images (placeholder for now)
-      const imageCount = Math.ceil(paragraphs.length / 3);
-      const images = Array(imageCount).fill('').map(() => generateImage(prompt, genre));
+      const imageCount = Math.max(1, Math.ceil(paragraphs.length / 3));
+      const imagePromises = Array(imageCount).fill('').map(() => generateImage(prompt, genre));
       
       // Use provided title or generate one from the content
-      const storyTitle = title || `Story - ${new Date().toLocaleDateString()}`;
+      const storyTitle = title || `Story about ${prompt.slice(0, 20)}...`;
       
+      // Create the story object
       const story: Story = {
         id: `story-${Date.now()}`,
         title: storyTitle,
         content: paragraphs,
-        images: await Promise.all(images),
-        audioUrl: undefined, // Placeholder for future audio integration
+        images: await Promise.all(imagePromises),
+        genre: genre,
+        prompt: prompt,
         createdAt: new Date()
       };
       
+      // Try to generate audio (placeholder for future implementation)
+      try {
+        const firstParagraph = paragraphs[0] || '';
+        const audioUrl = await generateAudio(firstParagraph);
+        if (audioUrl) {
+          story.audioUrl = audioUrl;
+        }
+      } catch (error) {
+        console.error('Audio generation failed:', error);
+        // Don't throw here, just continue without audio
+      }
+      
       setCurrentStory(story);
       navigate(`/story/${story.id}`);
+      toast.success('Your story has been created!');
     } catch (error) {
       console.error('Error generating story:', error);
-      toast.error('Failed to generate story. Please try again.');
+      toast.error(`Failed to generate story: ${(error as Error).message || 'Please try again'}`);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -114,7 +146,8 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     currentStory,
     savedStories,
     generateNewStory,
-    saveStory
+    saveStory,
+    isGenerating
   };
 
   return <StoryContext.Provider value={value}>{children}</StoryContext.Provider>;

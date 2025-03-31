@@ -13,10 +13,9 @@ const StoryForm: React.FC = () => {
   const [title, setTitle] = useState('');
   const [genre, setGenre] = useState('fantasy');
   const [length, setLength] = useState('medium');
-  const [isLoading, setIsLoading] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
-
-  const { generateNewStory } = useStory();
+  
+  const { generateNewStory, isGenerating } = useStory();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,15 +25,11 @@ const StoryForm: React.FC = () => {
       return;
     }
     
-    setIsLoading(true);
-    
     try {
       await generateNewStory(title, prompt, genre, length);
     } catch (error) {
-      console.error("Error generating story:", error);
-      toast.error("Failed to generate story. Please try again.");
-    } finally {
-      setIsLoading(false);
+      // Error is already handled in the context
+      console.error("Error in form submission:", error);
     }
   };
 
@@ -203,8 +198,8 @@ const StoryForm: React.FC = () => {
             <PenLine className="mr-2 h-4 w-4" />
             Save Draft
           </Button>
-          <Button type="submit" className="btn-tale" disabled={isLoading}>
-            {isLoading ? (
+          <Button type="submit" className="btn-tale" disabled={isGenerating}>
+            {isGenerating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Generating...
