@@ -52,16 +52,16 @@ const aiModels: AIModel[] = [
     apiKeyName: 'claude_api_key'
   },
   {
-    id: 'deepseek-coder-v2',
-    name: 'Deepseek Coder V2',
+    id: 'deepseek-chat',
+    name: 'Deepseek Chat',
     provider: 'Deepseek',
-    description: 'Specialized for story generation',
+    description: 'General purpose chat model',
     requiresApiKey: true,
     apiKeyName: 'deepseek_api_key'
   },
   {
-    id: 'gemini-pro',
-    name: 'Gemini Pro',
+    id: 'gemini-1.5-pro',
+    name: 'Gemini 1.5 Pro',
     provider: 'Google',
     description: 'Google\'s advanced multimodal AI model',
     requiresApiKey: true,

@@ -226,7 +226,7 @@ const generateStoryFromDeepseek = async (prompt: string, maxTokens: number, mode
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "deepseek-coder-v2",
+        model: "deepseek-chat",
         messages: [
           {
             role: 'user',
@@ -260,7 +260,7 @@ const generateStoryFromGemini = async (prompt: string, maxTokens: number, modelI
   }
   
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
