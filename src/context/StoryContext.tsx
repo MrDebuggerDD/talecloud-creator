@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -77,7 +76,7 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       toast.info('Generating your story...');
       
       // Import the service dynamically to avoid circular dependencies
-      const { generateStory, generateImage, generateAudio } = await import('../services/OllamaService');
+      const { generateStory, generateImage } = await import('../services/OllamaService');
       
       // Generate content from the selected AI model
       const content = await generateStory(prompt, genre, length, model);
@@ -90,6 +89,7 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       // Generate images (placeholder for now)
       const imageCount = Math.max(1, Math.ceil(paragraphs.length / 3));
       const imagePromises = Array(imageCount).fill('').map(() => generateImage(prompt, genre));
+      const images = await Promise.all(imagePromises);
       
       // Use provided title or generate one from the content
       const storyTitle = title || `Story about ${prompt.slice(0, 20)}...`;
@@ -99,25 +99,14 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         id: `story-${Date.now()}`,
         title: storyTitle,
         content: paragraphs,
-        images: await Promise.all(imagePromises),
+        images: images,
         genre: genre,
         prompt: prompt,
         createdAt: new Date(),
         model: model
       };
       
-      // Try to generate audio (placeholder for future implementation)
-      try {
-        const firstParagraph = paragraphs[0] || '';
-        const audioUrl = await generateAudio(firstParagraph);
-        if (audioUrl) {
-          story.audioUrl = audioUrl;
-        }
-      } catch (error) {
-        console.error('Audio generation failed:', error);
-        // Don't throw here, just continue without audio
-      }
-      
+      // Audio will be generated on the story page
       setCurrentStory(story);
       navigate(`/story/${story.id}`);
       toast.success('Your story has been created!');
@@ -141,6 +130,12 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       // Otherwise add as new story
       return [...prev, story];
     });
+    
+    // Also update currentStory if this is the current story
+    if (currentStory && currentStory.id === story.id) {
+      setCurrentStory(story);
+    }
+    
     toast.success('Story saved to library!');
   };
 

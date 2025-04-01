@@ -452,12 +452,12 @@ export const generateAudio = async (text: string, voice: string = "onyx"): Promi
   try {
     console.log("Audio generation requested for text of length:", text.length);
     
-    // Get ElevenLabs API key from localStorage (temporary solution)
+    // Get ElevenLabs API key from localStorage
     const apiKey = localStorage.getItem('elevenlabs_api_key');
     
     if (!apiKey) {
       console.warn("No ElevenLabs API key found. Please add your API key in settings.");
-      return "";
+      throw new Error("No ElevenLabs API key found. Please add your API key in settings.");
     }
     
     // Truncate text if it's too long (ElevenLabs has character limits)
@@ -465,6 +465,8 @@ export const generateAudio = async (text: string, voice: string = "onyx"): Promi
     
     const voiceId = getVoiceId(voice);
     const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+    
+    console.log("Calling ElevenLabs API with voice:", voice, "voiceId:", voiceId);
     
     const response = await fetch(url, {
       method: "POST",
@@ -483,6 +485,8 @@ export const generateAudio = async (text: string, voice: string = "onyx"): Promi
     });
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`ElevenLabs API error: ${response.status} ${response.statusText}`, errorText);
       throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
     }
     
@@ -490,10 +494,11 @@ export const generateAudio = async (text: string, voice: string = "onyx"): Promi
     const blob = await response.blob();
     const audioUrl = URL.createObjectURL(blob);
     
+    console.log("Audio generation successful, created blob URL:", audioUrl);
     return audioUrl;
   } catch (error) {
     console.error("Error generating audio:", error);
-    return "";
+    throw error;
   }
 }
 

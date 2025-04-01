@@ -24,6 +24,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
   const [isMuted, setIsMuted] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [audioUrl, setAudioUrl] = useState(initialAudioUrl || "");
+  const [audioError, setAudioError] = useState<string | null>(null);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { id } = useParams<{ id: string }>();
@@ -56,21 +57,39 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       // Set up event listeners
       audioRef.current.addEventListener('timeupdate', updateProgress);
       audioRef.current.addEventListener('ended', handleAudioEnded);
+      audioRef.current.addEventListener('error', handleAudioError);
+      audioRef.current.addEventListener('canplaythrough', handleCanPlayThrough);
       
       // Set volume
       audioRef.current.volume = volume;
+      
+      console.log("Audio element initialized with URL:", audioUrl);
+      setAudioError(null);
       
       return () => {
         // Clean up event listeners
         if (audioRef.current) {
           audioRef.current.removeEventListener('timeupdate', updateProgress);
           audioRef.current.removeEventListener('ended', handleAudioEnded);
+          audioRef.current.removeEventListener('error', handleAudioError);
+          audioRef.current.removeEventListener('canplaythrough', handleCanPlayThrough);
           audioRef.current.pause();
           setIsPlaying(false);
         }
       };
     }
   }, [audioUrl]);
+
+  const handleCanPlayThrough = () => {
+    console.log("Audio can play through");
+  };
+
+  const handleAudioError = (e: Event) => {
+    console.error("Audio error:", e);
+    setAudioError("Failed to load audio. Please try again.");
+    setIsPlaying(false);
+    toast.error("Failed to play audio. Please try regenerating the audio.");
+  };
 
   // Handle audio progress updates
   const updateProgress = () => {
@@ -100,6 +119,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     
     try {
       setIsGeneratingAudio(true);
+      setAudioError(null);
       toast.info("Generating audio narration...");
       
       // Generate audio for the specified paragraph
@@ -118,10 +138,13 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
           toast.success("Audio narration ready!");
         }
       } else {
+        setAudioError("Failed to generate audio narration.");
         toast.error("Failed to generate audio narration.");
       }
     } catch (error) {
-      toast.error("Error generating audio narration.");
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      setAudioError(errorMessage);
+      toast.error(`Error generating audio: ${errorMessage}`);
       console.error("Error generating audio:", error);
     } finally {
       setIsGeneratingAudio(false);
@@ -216,13 +239,15 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
         {/* Audio Controls */}
         <div className="flex items-center justify-center gap-3 mb-6">
           <Button 
-            onClick={togglePlay} 
+            onClick={audioError ? () => handleGenerateAudio() : togglePlay} 
             variant="outline" 
             className="rounded-full w-12 h-12 p-0 flex items-center justify-center"
-            disabled={isGeneratingAudio || !audioUrl}
+            disabled={isGeneratingAudio || (!audioUrl && !audioError)}
           >
             {isGeneratingAudio ? (
               <Loader2 className="h-5 w-5 animate-spin" />
+            ) : audioError ? (
+              <Play className="h-5 w-5 text-red-500" />
             ) : isPlaying ? (
               <Pause className="h-5 w-5" />
             ) : (
@@ -231,8 +256,8 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
           </Button>
           <div className="bg-gray-200 h-2 flex-1 max-w-md rounded-full overflow-hidden">
             <div 
-              className="bg-tale-primary h-full rounded-full transition-all duration-300" 
-              style={{ width: `${audioProgress}%` }}
+              className={`h-full rounded-full transition-all duration-300 ${audioError ? 'bg-red-400' : 'bg-tale-primary'}`}
+              style={{ width: `${audioError ? 100 : audioProgress}%` }}
             ></div>
           </div>
           <div className="flex items-center gap-2">
@@ -241,6 +266,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
               size="sm"
               className="rounded-full w-8 h-8 p-0"
               onClick={toggleMute}
+              disabled={!audioUrl || !!audioError}
             >
               {isMuted ? (
                 <VolumeX className="h-4 w-4" />
@@ -255,9 +281,23 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
               value={[volume]}
               onValueChange={handleVolumeChange}
               className="w-20"
+              disabled={!audioUrl || !!audioError}
             />
           </div>
         </div>
+        
+        {audioError && (
+          <div className="text-red-500 mb-4 text-sm">
+            {audioError}
+            <Button 
+              variant="link" 
+              className="text-sm text-red-600 underline ml-2"
+              onClick={() => handleGenerateAudio()}
+            >
+              Try Again
+            </Button>
+          </div>
+        )}
         
         {/* Action Buttons */}
         <div className="flex items-center justify-center gap-2">
