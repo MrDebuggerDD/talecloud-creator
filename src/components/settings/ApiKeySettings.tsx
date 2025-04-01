@@ -1,320 +1,256 @@
 
 import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Settings, KeyRound, Check, Cloud, Laptop } from 'lucide-react';
+import { Settings } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
 
 const ApiKeySettings: React.FC = () => {
-  const [elevenlabsApiKey, setElevenlabsApiKey] = useState('');
-  const [stableDiffusionApiKey, setStableDiffusionApiKey] = useState('');
-  const [openaiApiKey, setOpenaiApiKey] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
-  const [elevenLabsKeySaved, setElevenLabsKeySaved] = useState(false);
-  const [stableDiffusionKeySaved, setStableDiffusionKeySaved] = useState(false);
-  const [openaiKeySaved, setOpenaiKeySaved] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('api');
   const [useCloudApi, setUseCloudApi] = useState(false);
+  
+  // API Keys
+  const [openaiApiKey, setOpenaiApiKey] = useState('');
+  const [stableDiffusionApiKey, setStableDiffusionApiKey] = useState('');
+  const [elevenlabsApiKey, setElevenlabsApiKey] = useState('');
+  const [claudeApiKey, setClaudeApiKey] = useState('');
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [mistralApiKey, setMistralApiKey] = useState('');
+  const [deepseekApiKey, setDeepseekApiKey] = useState('');
 
   useEffect(() => {
-    // Load saved API keys from localStorage
-    const savedElevenLabsKey = localStorage.getItem('elevenlabs_api_key');
-    const savedStableDiffusionKey = localStorage.getItem('stable_diffusion_api_key');
-    const savedOpenaiKey = localStorage.getItem('openai_api_key');
+    // Load API keys from localStorage
+    const openaiKey = localStorage.getItem('openai_api_key');
+    const sdKey = localStorage.getItem('stable_diffusion_api_key');
+    const elKey = localStorage.getItem('elevenlabs_api_key');
+    const clKey = localStorage.getItem('claude_api_key');
+    const gmKey = localStorage.getItem('gemini_api_key');
+    const msKey = localStorage.getItem('mistral_api_key');
+    const dsKey = localStorage.getItem('deepseek_api_key');
+    
+    // Load API mode from localStorage
     const cloudApiSetting = localStorage.getItem('use_cloud_api');
     
-    if (savedElevenLabsKey) {
-      setElevenlabsApiKey(savedElevenLabsKey);
-      setElevenLabsKeySaved(true);
-    }
-    
-    if (savedStableDiffusionKey) {
-      setStableDiffusionApiKey(savedStableDiffusionKey);
-      setStableDiffusionKeySaved(true);
-    }
-    
-    if (savedOpenaiKey) {
-      setOpenaiApiKey(savedOpenaiKey);
-      setOpenaiKeySaved(true);
-    }
+    if (openaiKey) setOpenaiApiKey('•'.repeat(16));
+    if (sdKey) setStableDiffusionApiKey('•'.repeat(16));
+    if (elKey) setElevenlabsApiKey('•'.repeat(16));
+    if (clKey) setClaudeApiKey('•'.repeat(16));
+    if (gmKey) setGeminiApiKey('•'.repeat(16));
+    if (msKey) setMistralApiKey('•'.repeat(16));
+    if (dsKey) setDeepseekApiKey('•'.repeat(16));
     
     if (cloudApiSetting) {
       setUseCloudApi(cloudApiSetting === 'true');
     }
   }, []);
 
-  const saveElevenLabsKey = () => {
-    if (elevenlabsApiKey.trim()) {
-      localStorage.setItem('elevenlabs_api_key', elevenlabsApiKey);
-      setElevenLabsKeySaved(true);
-      toast.success('ElevenLabs API key saved!');
-    } else {
-      toast.error('Please enter a valid API key');
-    }
-  };
-
-  const saveStableDiffusionKey = () => {
-    if (stableDiffusionApiKey.trim()) {
-      localStorage.setItem('stable_diffusion_api_key', stableDiffusionApiKey);
-      setStableDiffusionKeySaved(true);
-      toast.success('Stable Diffusion API key saved!');
-    } else {
-      toast.error('Please enter a valid API key');
-    }
-  };
-
-  const saveOpenaiKey = () => {
-    if (openaiApiKey.trim()) {
+  const handleSaveSettings = () => {
+    // Save API mode to localStorage
+    localStorage.setItem('use_cloud_api', useCloudApi.toString());
+    
+    // Save API keys if they were changed (not placeholders)
+    if (openaiApiKey && !openaiApiKey.includes('•')) {
       localStorage.setItem('openai_api_key', openaiApiKey);
-      setOpenaiKeySaved(true);
-      toast.success('OpenAI API key saved!');
-    } else {
-      toast.error('Please enter a valid API key');
-    }
-  };
-
-  const toggleCloudApi = () => {
-    const newValue = !useCloudApi;
-    setUseCloudApi(newValue);
-    localStorage.setItem('use_cloud_api', String(newValue));
-    
-    // Set environment variable
-    if (typeof window !== 'undefined') {
-      (window as any).VITE_USE_CLOUD_API = String(newValue);
     }
     
-    toast.info(`Switched to ${newValue ? 'cloud API' : 'local Ollama'} for story generation`);
+    if (stableDiffusionApiKey && !stableDiffusionApiKey.includes('•')) {
+      localStorage.setItem('stable_diffusion_api_key', stableDiffusionApiKey);
+    }
+    
+    if (elevenlabsApiKey && !elevenlabsApiKey.includes('•')) {
+      localStorage.setItem('elevenlabs_api_key', elevenlabsApiKey);
+    }
+    
+    if (claudeApiKey && !claudeApiKey.includes('•')) {
+      localStorage.setItem('claude_api_key', claudeApiKey);
+    }
+    
+    if (geminiApiKey && !geminiApiKey.includes('•')) {
+      localStorage.setItem('gemini_api_key', geminiApiKey);
+    }
+    
+    if (mistralApiKey && !mistralApiKey.includes('•')) {
+      localStorage.setItem('mistral_api_key', mistralApiKey);
+    }
+    
+    if (deepseekApiKey && !deepseekApiKey.includes('•')) {
+      localStorage.setItem('deepseek_api_key', deepseekApiKey);
+    }
+    
+    toast.success('Settings saved successfully!');
+    setOpen(false);
   };
-
-  const clearElevenLabsKey = () => {
-    localStorage.removeItem('elevenlabs_api_key');
-    setElevenlabsApiKey('');
-    setElevenLabsKeySaved(false);
-    toast.info('ElevenLabs API key removed');
-  };
-
-  const clearStableDiffusionKey = () => {
-    localStorage.removeItem('stable_diffusion_api_key');
-    setStableDiffusionApiKey('');
-    setStableDiffusionKeySaved(false);
-    toast.info('Stable Diffusion API key removed');
-  };
-  
-  const clearOpenaiKey = () => {
-    localStorage.removeItem('openai_api_key');
-    setOpenaiApiKey('');
-    setOpenaiKeySaved(false);
-    toast.info('OpenAI API key removed');
-  };
-
-  // Check if any API key is saved
-  const anyKeySaved = elevenLabsKeySaved || stableDiffusionKeySaved || openaiKeySaved;
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="relative">
-          <Settings className="h-5 w-5" />
-          <span className="sr-only">Settings</span>
-          {anyKeySaved && (
-            <span className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-white" />
-          )}
-        </Button>
+        <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+          <Settings className="h-5 w-5 text-gray-600" />
+        </button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
-          <DialogTitle>API Settings</DialogTitle>
+          <DialogTitle>Settings</DialogTitle>
+          <DialogDescription>
+            Configure TaleCloud settings and API keys
+          </DialogDescription>
         </DialogHeader>
         
-        <div className="flex items-center space-x-2 py-2 mb-4 bg-gray-50 p-3 rounded-md">
-          <div className="flex-1 space-y-1">
-            <div className="flex items-center">
-              {useCloudApi ? (
-                <Cloud className="h-4 w-4 mr-2 text-blue-500" />
-              ) : (
-                <Laptop className="h-4 w-4 mr-2 text-gray-500" />
-              )}
-              <span className="font-medium text-sm">
-                {useCloudApi ? "Using Cloud API" : "Using Local Ollama"}
-              </span>
-            </div>
-            <p className="text-xs text-gray-500">
-              {useCloudApi 
-                ? "Story generation via OpenAI API (requires API key)" 
-                : "Story generation via local Ollama installation (no API key needed)"
-              }
-            </p>
-          </div>
-          <Switch 
-            checked={useCloudApi}
-            onCheckedChange={toggleCloudApi}
-          />
-        </div>
-        
-        <Tabs defaultValue="text-to-speech" className="w-full">
-          <TabsList className="grid grid-cols-3 mb-4">
-            <TabsTrigger value="text-to-speech">Text-to-Speech</TabsTrigger>
-            <TabsTrigger value="image-generation">Image Generation</TabsTrigger>
-            <TabsTrigger value="text-generation">Text Generation</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid grid-cols-2 mb-4">
+            <TabsTrigger value="api">API Mode</TabsTrigger>
+            <TabsTrigger value="keys">API Keys</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="text-to-speech" className="py-2">
-            <div className="mb-4">
-              <Label htmlFor="elevenlabs-api-key" className="text-sm font-medium flex items-center mb-2">
-                <KeyRound className="h-4 w-4 mr-2" /> 
-                ElevenLabs API Key
-              </Label>
-              <div className="text-xs text-gray-500 mb-2">
-                Required for Text-to-Speech functionality. Get your API key from{' '}
-                <a 
-                  href="https://elevenlabs.io/speech-synthesis" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-tale-primary hover:underline"
-                >
-                  elevenlabs.io
-                </a>
-              </div>
-              <Input
-                id="elevenlabs-api-key"
-                type="password"
-                placeholder="Your ElevenLabs API Key"
-                value={elevenlabsApiKey}
-                onChange={(e) => setElevenlabsApiKey(e.target.value)}
-                className="mb-2"
-              />
-              <div className="flex gap-2">
-                <Button onClick={saveElevenLabsKey} className="flex-1">
-                  {elevenLabsKeySaved ? (
-                    <>
-                      <Check className="h-4 w-4 mr-1" /> Updated
-                    </>
-                  ) : (
-                    'Save API Key'
-                  )}
-                </Button>
-                {elevenLabsKeySaved && (
-                  <Button variant="outline" onClick={clearElevenLabsKey}>
-                    Remove Key
-                  </Button>
-                )}
-              </div>
+          <TabsContent value="api">
+            <div className="space-y-4">
+              <h3 className="font-medium mb-2">AI Generation Mode</h3>
+              
+              <RadioGroup 
+                value={useCloudApi ? "cloud" : "local"} 
+                onValueChange={(val) => setUseCloudApi(val === "cloud")}
+              >
+                <div className="flex items-start space-x-2 mb-3">
+                  <RadioGroupItem value="local" id="local" />
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="local" className="font-medium">Local Mode (Ollama)</Label>
+                    <p className="text-sm text-gray-500">
+                      Use Ollama running locally on your machine. No API keys needed, 
+                      but you must install and run Ollama separately.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-2">
+                  <RadioGroupItem value="cloud" id="cloud" />
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="cloud" className="font-medium">Cloud Mode</Label>
+                    <p className="text-sm text-gray-500">
+                      Use cloud-based AI services. Requires API keys, but no local 
+                      installation needed. More powerful models available.
+                    </p>
+                  </div>
+                </div>
+              </RadioGroup>
             </div>
           </TabsContent>
           
-          <TabsContent value="image-generation" className="py-2">
-            <div className="mb-4">
-              <Label htmlFor="stable-diffusion-api-key" className="text-sm font-medium flex items-center mb-2">
-                <KeyRound className="h-4 w-4 mr-2" /> 
-                Replicate API Key (for Stable Diffusion)
-              </Label>
-              <div className="text-xs text-gray-500 mb-2">
-                Required for AI image generation. Get your API key from{' '}
-                <a 
-                  href="https://replicate.com/account/api-tokens" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-tale-primary hover:underline"
-                >
-                  replicate.com
-                </a>
+          <TabsContent value="keys">
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+              <div>
+                <Label htmlFor="openai" className="text-sm font-medium">OpenAI API Key</Label>
+                <Input
+                  id="openai"
+                  value={openaiApiKey}
+                  onChange={(e) => setOpenaiApiKey(e.target.value)}
+                  placeholder="sk-..."
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Used for GPT-4o and GPT-3.5 Turbo story generation
+                </p>
               </div>
-              <Input
-                id="stable-diffusion-api-key"
-                type="password"
-                placeholder="Your Replicate API Key"
-                value={stableDiffusionApiKey}
-                onChange={(e) => setStableDiffusionApiKey(e.target.value)}
-                className="mb-2"
-              />
-              <div className="flex gap-2">
-                <Button onClick={saveStableDiffusionKey} className="flex-1">
-                  {stableDiffusionKeySaved ? (
-                    <>
-                      <Check className="h-4 w-4 mr-1" /> Updated
-                    </>
-                  ) : (
-                    'Save API Key'
-                  )}
-                </Button>
-                {stableDiffusionKeySaved && (
-                  <Button variant="outline" onClick={clearStableDiffusionKey}>
-                    Remove Key
-                  </Button>
-                )}
+              
+              <div>
+                <Label htmlFor="claude" className="text-sm font-medium">Anthropic API Key</Label>
+                <Input
+                  id="claude"
+                  value={claudeApiKey}
+                  onChange={(e) => setClaudeApiKey(e.target.value)}
+                  placeholder="sk-ant-..."
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Used for Claude 3 and 3.5 Sonnet story generation
+                </p>
               </div>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="text-generation" className="py-2">
-            <div className="mb-4">
-              <Label htmlFor="openai-api-key" className="text-sm font-medium flex items-center mb-2">
-                <KeyRound className="h-4 w-4 mr-2" /> 
-                OpenAI API Key
-              </Label>
-              <div className="text-xs text-gray-500 mb-2">
-                Required for cloud-based text generation. Get your API key from{' '}
-                <a 
-                  href="https://platform.openai.com/api-keys" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-tale-primary hover:underline"
-                >
-                  platform.openai.com
-                </a>
+              
+              <div>
+                <Label htmlFor="gemini" className="text-sm font-medium">Google Gemini API Key</Label>
+                <Input
+                  id="gemini"
+                  value={geminiApiKey}
+                  onChange={(e) => setGeminiApiKey(e.target.value)}
+                  placeholder="AIza..."
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Used for Gemini Pro story generation
+                </p>
               </div>
-              <Input
-                id="openai-api-key"
-                type="password"
-                placeholder="Your OpenAI API Key"
-                value={openaiApiKey}
-                onChange={(e) => setOpenaiApiKey(e.target.value)}
-                className="mb-2"
-              />
-              <div className="flex gap-2">
-                <Button onClick={saveOpenaiKey} className="flex-1">
-                  {openaiKeySaved ? (
-                    <>
-                      <Check className="h-4 w-4 mr-1" /> Updated
-                    </>
-                  ) : (
-                    'Save API Key'
-                  )}
-                </Button>
-                {openaiKeySaved && (
-                  <Button variant="outline" onClick={clearOpenaiKey}>
-                    Remove Key
-                  </Button>
-                )}
+              
+              <div>
+                <Label htmlFor="mistral" className="text-sm font-medium">Mistral AI API Key</Label>
+                <Input
+                  id="mistral"
+                  value={mistralApiKey}
+                  onChange={(e) => setMistralApiKey(e.target.value)}
+                  placeholder="..."
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Used for Mistral Large story generation
+                </p>
               </div>
-            </div>
-            
-            {useCloudApi && !openaiKeySaved && (
-              <div className="bg-amber-50 p-3 rounded-md border border-amber-200 text-amber-800 text-sm mb-2">
-                ⚠️ Cloud API is enabled but no OpenAI API key is set. Story generation will fail until you add an API key.
+              
+              <div>
+                <Label htmlFor="deepseek" className="text-sm font-medium">Deepseek API Key</Label>
+                <Input
+                  id="deepseek"
+                  value={deepseekApiKey}
+                  onChange={(e) => setDeepseekApiKey(e.target.value)}
+                  placeholder="..."
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Used for Deepseek Coder V2 story generation
+                </p>
               </div>
-            )}
-            
-            <div className="text-xs text-gray-500 mt-2">
-              <p>
-                <strong>Note:</strong> For local story generation, ensure you have{' '}
-                <a 
-                  href="https://ollama.ai/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-tale-primary hover:underline"
-                >
-                  Ollama
-                </a>
-                {' '}installed and running on your computer.
-              </p>
+              
+              <div>
+                <Label htmlFor="stable" className="text-sm font-medium">Replicate API Key</Label>
+                <Input
+                  id="stable"
+                  value={stableDiffusionApiKey}
+                  onChange={(e) => setStableDiffusionApiKey(e.target.value)}
+                  placeholder="r8_..."
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Used for Stable Diffusion image generation
+                </p>
+              </div>
+              
+              <div>
+                <Label htmlFor="elevenlabs" className="text-sm font-medium">ElevenLabs API Key</Label>
+                <Input
+                  id="elevenlabs"
+                  value={elevenlabsApiKey}
+                  onChange={(e) => setElevenlabsApiKey(e.target.value)}
+                  placeholder="..."
+                  className="mt-1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Used for AI voice narration
+                </p>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
         
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSaveSettings}>
+            Save Changes
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

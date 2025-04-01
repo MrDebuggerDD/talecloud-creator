@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { PenLine, Wand2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStory } from '@/context/StoryContext';
+import AIModelSelector from './AIModelSelector';
 
 const StoryForm: React.FC = () => {
   const [prompt, setPrompt] = useState('');
@@ -14,6 +15,7 @@ const StoryForm: React.FC = () => {
   const [genre, setGenre] = useState('fantasy');
   const [length, setLength] = useState('medium');
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [aiModel, setAiModel] = useState('ollama-mistral');
   
   const { generateNewStory, isGenerating } = useStory();
 
@@ -26,7 +28,7 @@ const StoryForm: React.FC = () => {
     }
     
     try {
-      await generateNewStory(title, prompt, genre, length);
+      await generateNewStory(title, prompt, genre, length, aiModel);
     } catch (error) {
       // Error is already handled in the context
       console.error("Error in form submission:", error);
@@ -40,6 +42,8 @@ const StoryForm: React.FC = () => {
   return (
     <div className="magical-border p-6 md:p-8 bg-white rounded-xl shadow-lg">
       <form onSubmit={handleSubmit}>
+        <AIModelSelector selectedModel={aiModel} onSelectModel={setAiModel} />
+        
         <div className="mb-6">
           <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
             Story Title (Optional)

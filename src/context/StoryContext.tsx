@@ -12,12 +12,13 @@ interface Story {
   createdAt: Date;
   genre: string;
   prompt: string;
+  model?: string;
 }
 
 interface StoryContextType {
   currentStory: Story | null;
   savedStories: Story[];
-  generateNewStory: (title: string, prompt: string, genre: string, length: string) => Promise<void>;
+  generateNewStory: (title: string, prompt: string, genre: string, length: string, model?: string) => Promise<void>;
   saveStory: (story: Story) => void;
   isGenerating: boolean;
 }
@@ -64,7 +65,7 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [savedStories]);
 
-  const generateNewStory = async (title: string, prompt: string, genre: string, length: string) => {
+  const generateNewStory = async (title: string, prompt: string, genre: string, length: string, model: string = 'ollama-mistral') => {
     if (isGenerating) {
       toast.info('A story is already being generated');
       return;
@@ -78,8 +79,8 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       // Import the service dynamically to avoid circular dependencies
       const { generateStory, generateImage, generateAudio } = await import('../services/OllamaService');
       
-      // Generate content from Ollama
-      const content = await generateStory(prompt, genre, length);
+      // Generate content from the selected AI model
+      const content = await generateStory(prompt, genre, length, model);
       
       // Split content into paragraphs
       const paragraphs = content
@@ -101,7 +102,8 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         images: await Promise.all(imagePromises),
         genre: genre,
         prompt: prompt,
-        createdAt: new Date()
+        createdAt: new Date(),
+        model: model
       };
       
       // Try to generate audio (placeholder for future implementation)

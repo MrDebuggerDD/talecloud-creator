@@ -28,7 +28,8 @@ const USE_CLOUD_API = import.meta.env.VITE_USE_CLOUD_API === 'true';
 export const generateStory = async (
   prompt: string,
   genre: string,
-  length: string
+  length: string,
+  model: string = 'ollama-mistral'
 ): Promise<string> => {
   try {
     const lengthMap: Record<string, number> = {
@@ -47,29 +48,46 @@ export const generateStory = async (
     
     const fullPrompt = `${systemPrompt}\n\nPROMPT: ${prompt}`;
 
-    console.log("Generating story with prompt:", fullPrompt.substring(0, 100) + "...");
+    console.log("Generating story with model:", model);
+    console.log("Prompt:", fullPrompt.substring(0, 100) + "...");
 
-    if (USE_CLOUD_API) {
-      // Use cloud-based API endpoint
-      return await generateStoryFromCloud(fullPrompt, maxTokens);
-    } else {
+    if (model.startsWith('ollama-')) {
       // Use local Ollama
-      return await generateStoryFromLocalOllama(fullPrompt, maxTokens);
+      const ollamaModel = model.replace('ollama-', '');
+      return await generateStoryFromLocalOllama(fullPrompt, maxTokens, ollamaModel);
+    } else if (model.startsWith('openai-')) {
+      // Use OpenAI
+      return await generateStoryFromOpenAI(fullPrompt, maxTokens, model);
+    } else if (model.startsWith('anthropic-')) {
+      // Use Anthropic/Claude
+      return await generateStoryFromClaude(fullPrompt, maxTokens, model);
+    } else if (model.startsWith('deepseek-')) {
+      // Use Deepseek
+      return await generateStoryFromDeepseek(fullPrompt, maxTokens, model);
+    } else if (model.startsWith('gemini-')) {
+      // Use Gemini
+      return await generateStoryFromGemini(fullPrompt, maxTokens, model);
+    } else if (model.startsWith('mistral-')) {
+      // Use Mistral AI
+      return await generateStoryFromMistral(fullPrompt, maxTokens, model);
+    } else {
+      // Default to Ollama mistral
+      return await generateStoryFromLocalOllama(fullPrompt, maxTokens, "mistral");
     }
   } catch (error) {
     console.error("Error generating story:", error);
     // Return a more user-friendly error message
     if ((error as Error).message?.includes("Failed to fetch")) {
-      throw new Error("Could not connect to AI service. Please check your connection or try the cloud API option in settings.");
+      throw new Error("Could not connect to AI service. Please check your connection or try another AI model.");
     }
     throw new Error(`Story generation failed: ${(error as Error).message || "Unknown error"}`);
   }
 };
 
 // Function to generate story from local Ollama
-const generateStoryFromLocalOllama = async (prompt: string, maxTokens: number): Promise<string> => {
+const generateStoryFromLocalOllama = async (prompt: string, maxTokens: number, ollamaModel: string = "mistral"): Promise<string> => {
   const request: OllamaRequest = {
-    model: "mistral", // or llama3, gemma or any model you have in Ollama
+    model: ollamaModel, // or llama3, gemma or any model you have in Ollama
     prompt: prompt,
     options: {
       temperature: 0.7,
@@ -88,7 +106,7 @@ const generateStoryFromLocalOllama = async (prompt: string, maxTokens: number): 
 
   if (!response.ok) {
     console.error("Ollama API error:", response.status, response.statusText);
-    throw new Error(`Error: ${response.status} ${response.statusText}`);
+    throw new Error(`Error: ${response.status} ${response.statusText}. Make sure Ollama is running and the model is installed.`);
   }
 
   const data: OllamaResponse = await response.json();
@@ -96,16 +114,20 @@ const generateStoryFromLocalOllama = async (prompt: string, maxTokens: number): 
   return data.response;
 };
 
-// Function to generate story from cloud API
-const generateStoryFromCloud = async (prompt: string, maxTokens: number): Promise<string> => {
+// Function to generate story from OpenAI
+const generateStoryFromOpenAI = async (prompt: string, maxTokens: number, modelId: string): Promise<string> => {
   const apiKey = localStorage.getItem('openai_api_key');
   
   if (!apiKey) {
-    throw new Error("OpenAI API key is required for cloud story generation. Please add it in settings.");
+    throw new Error("OpenAI API key is required. Please add it in settings.");
+  }
+  
+  let model = "gpt-3.5-turbo";
+  if (modelId === "openai-gpt-4o") {
+    model = "gpt-4o";
   }
   
   try {
-    // Using OpenAI API as an alternative when Ollama isn't available
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -113,7 +135,7 @@ const generateStoryFromCloud = async (prompt: string, maxTokens: number): Promis
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
+        model: model,
         messages: [
           {
             role: 'user',
@@ -131,11 +153,187 @@ const generateStoryFromCloud = async (prompt: string, maxTokens: number): Promis
     }
 
     const data = await response.json();
-    console.log("Story generated successfully from cloud API");
+    console.log("Story generated successfully from OpenAI API");
     return data.choices[0].message.content;
   } catch (error) {
-    console.error("Error with cloud story generation:", error);
-    throw new Error(`Cloud story generation failed: ${(error as Error).message}`);
+    console.error("Error with OpenAI story generation:", error);
+    throw new Error(`OpenAI story generation failed: ${(error as Error).message}`);
+  }
+};
+
+// Function to generate story from Claude/Anthropic
+const generateStoryFromClaude = async (prompt: string, maxTokens: number, modelId: string): Promise<string> => {
+  const apiKey = localStorage.getItem('claude_api_key');
+  
+  if (!apiKey) {
+    throw new Error("Claude API key is required. Please add it in settings.");
+  }
+  
+  let model = "claude-3-sonnet-20240229";
+  if (modelId === "anthropic-claude-3.5") {
+    model = "claude-3-5-sonnet-20240620";
+  } else if (modelId === "anthropic-claude-3") {
+    model = "claude-3-opus-20240229";
+  }
+  
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: maxTokens
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Claude API error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("Story generated successfully from Claude API");
+    return data.content[0].text;
+  } catch (error) {
+    console.error("Error with Claude story generation:", error);
+    throw new Error(`Claude story generation failed: ${(error as Error).message}`);
+  }
+};
+
+// Function to generate story from Deepseek
+const generateStoryFromDeepseek = async (prompt: string, maxTokens: number, modelId: string): Promise<string> => {
+  const apiKey = localStorage.getItem('deepseek_api_key');
+  
+  if (!apiKey) {
+    throw new Error("Deepseek API key is required. Please add it in settings.");
+  }
+  
+  try {
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "deepseek-coder-v2",
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: maxTokens
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Deepseek API error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("Story generated successfully from Deepseek API");
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error("Error with Deepseek story generation:", error);
+    throw new Error(`Deepseek story generation failed: ${(error as Error).message}`);
+  }
+};
+
+// Function to generate story from Gemini
+const generateStoryFromGemini = async (prompt: string, maxTokens: number, modelId: string): Promise<string> => {
+  const apiKey = localStorage.getItem('gemini_api_key');
+  
+  if (!apiKey) {
+    throw new Error("Gemini API key is required. Please add it in settings.");
+  }
+  
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          maxOutputTokens: maxTokens,
+          temperature: 0.7
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Gemini API error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("Story generated successfully from Gemini API");
+    return data.candidates[0].content.parts[0].text;
+  } catch (error) {
+    console.error("Error with Gemini story generation:", error);
+    throw new Error(`Gemini story generation failed: ${(error as Error).message}`);
+  }
+};
+
+// Function to generate story from Mistral AI
+const generateStoryFromMistral = async (prompt: string, maxTokens: number, modelId: string): Promise<string> => {
+  const apiKey = localStorage.getItem('mistral_api_key');
+  
+  if (!apiKey) {
+    throw new Error("Mistral API key is required. Please add it in settings.");
+  }
+  
+  try {
+    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "mistral-large-latest",
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: maxTokens
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Mistral API error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("Story generated successfully from Mistral API");
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error("Error with Mistral story generation:", error);
+    throw new Error(`Mistral story generation failed: ${(error as Error).message}`);
   }
 };
 
