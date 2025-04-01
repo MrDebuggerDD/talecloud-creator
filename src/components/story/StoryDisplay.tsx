@@ -44,6 +44,13 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
   useEffect(() => {
     // Initialize audio element
     if (audioUrl) {
+      if (audioRef.current) {
+        // Clean up previous audio instance
+        audioRef.current.removeEventListener('timeupdate', updateProgress);
+        audioRef.current.removeEventListener('ended', handleAudioEnded);
+        audioRef.current.pause();
+      }
+      
       audioRef.current = new Audio(audioUrl);
       
       // Set up event listeners
@@ -127,7 +134,16 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     if (isPlaying) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play();
+      // Check if the audio is ready before playing
+      if (audioRef.current.readyState >= 2) {
+        audioRef.current.play().catch(error => {
+          console.error("Error playing audio:", error);
+          toast.error("Could not play audio. Please try again.");
+        });
+      } else {
+        toast.error("Audio is not ready to play. Please wait.");
+        return;
+      }
     }
     
     setIsPlaying(!isPlaying);
@@ -263,10 +279,10 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
         <div className="story-text prose max-w-none">
           {content.map((paragraph, index) => (
             <React.Fragment key={index}>
-              {index > 0 && index % 3 === 0 && images[Math.floor(index / 3) - 1] && (
+              {index > 0 && index % 3 === 0 && images[(Math.floor(index / 3) - 1) % images.length] && (
                 <div className="my-8">
                   <img 
-                    src={images[Math.floor(index / 3) - 1]} 
+                    src={images[(Math.floor(index / 3) - 1) % images.length]} 
                     alt={`Illustration for ${title}`}
                     className="w-full h-auto rounded-lg shadow-md" 
                   />

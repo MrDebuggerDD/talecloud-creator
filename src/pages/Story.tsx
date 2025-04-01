@@ -37,6 +37,11 @@ const Story: React.FC = () => {
     .filter(s => s.genre === story.genre && s.id !== story.id)
     .slice(0, 3);
 
+  // Make sure we have at least the first image
+  const storyImages = story.images && story.images.length > 0 ? 
+    story.images : 
+    ["https://images.unsplash.com/photo-1518709268805-4e9042af9f23"];
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8 md:py-12">
@@ -52,7 +57,7 @@ const Story: React.FC = () => {
         <StoryDisplay 
           title={story.title} 
           content={story.content} 
-          images={story.images} 
+          images={storyImages} 
           audioUrl={story.audioUrl}
         />
         
@@ -64,7 +69,7 @@ const Story: React.FC = () => {
                 <Link to={`/story/${relatedStory.id}`} key={relatedStory.id}>
                   <div className="bg-white rounded-lg shadow overflow-hidden hover:shadow-md transition-shadow">
                     <img 
-                      src={relatedStory.images[0] || "https://images.unsplash.com/photo-1518709268805-4e9042af9f23"} 
+                      src={relatedStory.images && relatedStory.images[0] ? relatedStory.images[0] : "https://images.unsplash.com/photo-1518709268805-4e9042af9f23"} 
                       alt={relatedStory.title} 
                       className="w-full h-40 object-cover"
                     />
