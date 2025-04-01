@@ -9,6 +9,7 @@ import Create from "./pages/Create";
 import Library from "./pages/Library";
 import About from "./pages/About";
 import Story from "./pages/Story";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { StoryProvider } from "./context/StoryContext";
 
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/library" element={<Library />} />
             <Route path="/about" element={<About />} />
             <Route path="/story/:id" element={<Story />} />
+            <Route path="/login" element={<Login />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

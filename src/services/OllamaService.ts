@@ -1,4 +1,3 @@
-
 interface OllamaRequest {
   model: string;
   prompt: string;
@@ -22,6 +21,10 @@ interface ElevenLabsResponse {
   audioUrl: string;
 }
 
+// Environment configuration
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:11434';
+const USE_CLOUD_API = import.meta.env.VITE_USE_CLOUD_API === 'true';
+
 export const generateStory = async (
   prompt: string,
   genre: string,
@@ -44,43 +47,97 @@ export const generateStory = async (
     
     const fullPrompt = `${systemPrompt}\n\nPROMPT: ${prompt}`;
 
-    console.log("Calling Ollama with prompt:", fullPrompt.substring(0, 100) + "...");
+    console.log("Generating story with prompt:", fullPrompt.substring(0, 100) + "...");
 
-    const request: OllamaRequest = {
-      model: "mistral", // or llama3, gemma or any model you have in Ollama
-      prompt: fullPrompt,
-      options: {
-        temperature: 0.7,
-        top_p: 0.9,
-        max_tokens: maxTokens
-      }
-    };
-
-    const response = await fetch("http://localhost:11434/api/generate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    });
-
-    if (!response.ok) {
-      console.error("Ollama API error:", response.status, response.statusText);
-      throw new Error(`Error: ${response.status} ${response.statusText}`);
+    if (USE_CLOUD_API) {
+      // Use cloud-based API endpoint
+      return await generateStoryFromCloud(fullPrompt, maxTokens);
+    } else {
+      // Use local Ollama
+      return await generateStoryFromLocalOllama(fullPrompt, maxTokens);
     }
-
-    const data: OllamaResponse = await response.json();
-    console.log("Story generated successfully");
-    return data.response;
   } catch (error) {
-    console.error("Error calling Ollama:", error);
+    console.error("Error generating story:", error);
     // Return a more user-friendly error message
     if ((error as Error).message?.includes("Failed to fetch")) {
-      throw new Error("Could not connect to Ollama. Make sure Ollama is running on your computer.");
+      throw new Error("Could not connect to AI service. Please check your connection or try the cloud API option in settings.");
     }
     throw new Error(`Story generation failed: ${(error as Error).message || "Unknown error"}`);
   }
-}
+};
+
+// Function to generate story from local Ollama
+const generateStoryFromLocalOllama = async (prompt: string, maxTokens: number): Promise<string> => {
+  const request: OllamaRequest = {
+    model: "mistral", // or llama3, gemma or any model you have in Ollama
+    prompt: prompt,
+    options: {
+      temperature: 0.7,
+      top_p: 0.9,
+      max_tokens: maxTokens
+    }
+  };
+
+  const response = await fetch("http://localhost:11434/api/generate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    console.error("Ollama API error:", response.status, response.statusText);
+    throw new Error(`Error: ${response.status} ${response.statusText}`);
+  }
+
+  const data: OllamaResponse = await response.json();
+  console.log("Story generated successfully from local Ollama");
+  return data.response;
+};
+
+// Function to generate story from cloud API
+const generateStoryFromCloud = async (prompt: string, maxTokens: number): Promise<string> => {
+  const apiKey = localStorage.getItem('openai_api_key');
+  
+  if (!apiKey) {
+    throw new Error("OpenAI API key is required for cloud story generation. Please add it in settings.");
+  }
+  
+  try {
+    // Using OpenAI API as an alternative when Ollama isn't available
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: maxTokens,
+        temperature: 0.7,
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("Story generated successfully from cloud API");
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error("Error with cloud story generation:", error);
+    throw new Error(`Cloud story generation failed: ${(error as Error).message}`);
+  }
+};
 
 export const generateImage = async (prompt: string, genre: string): Promise<string> => {
   try {
@@ -264,4 +321,3 @@ const getVoiceId = (voice: string): string => {
   
   return voiceMap[voice] || "onyx";
 }
-
