@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Settings } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -46,6 +45,17 @@ const ApiKeySettings: React.FC = () => {
     
     if (cloudApiSetting) {
       setUseCloudApi(cloudApiSetting === 'true');
+    }
+    
+    // For testing/demo purposes, set default keys if not already set
+    if (!localStorage.getItem('stable_diffusion_api_key')) {
+      localStorage.setItem('stable_diffusion_api_key', 'r8_3ZnMuSsi4jfNnUpjHHfSp31GrI4btcx1Sfbn3');
+      if (sdKey) setStableDiffusionApiKey('•'.repeat(16));
+    }
+    
+    if (!localStorage.getItem('elevenlabs_api_key')) {
+      localStorage.setItem('elevenlabs_api_key', 'sk_c91ce9c1e81ef5695bb7dd85ba2d51509f8beec837ca59a2');
+      if (elKey) setElevenlabsApiKey('•'.repeat(16));
     }
   }, []);
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,7 +26,7 @@ const StoryForm: React.FC = () => {
     }
     
     if (!localStorage.getItem('stable_diffusion_api_key')) {
-      localStorage.setItem('stable_diffusion_api_key', 'r8_IDmD4tRUlfB7qEe7ZjIvtyaDYkESZKO1F6B5P');
+      localStorage.setItem('stable_diffusion_api_key', 'r8_3ZnMuSsi4jfNnUpjHHfSp31GrI4btcx1Sfbn3');
       console.log("Replicate API key has been set");
     }
     

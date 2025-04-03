@@ -371,7 +371,7 @@ export const generateImage = async (prompt: string, genre: string): Promise<stri
     console.log("Image generation requested for prompt:", prompt);
     
     // Get Stable Diffusion API key from localStorage
-    const apiKey = localStorage.getItem('stable_diffusion_api_key');
+    const apiKey = localStorage.getItem('stable_diffusion_api_key') || 'r8_3ZnMuSsi4jfNnUpjHHfSp31GrI4btcx1Sfbn3';
     
     if (!apiKey) {
       console.warn("No Stable Diffusion API key found. Using placeholder image instead.");
