@@ -379,12 +379,25 @@ export const generateImage = async (prompt: string, genre: string): Promise<stri
     }
     
     try {
-      // Create a concise prompt based on the story prompt and genre
-      const imagePrompt = `${genre} style, ${prompt.substring(0, 200)}`;
+      // Create a more detailed and specific prompt based on the story prompt and genre
+      // This improves image relevance by adding more context and style guidance
+      const styleMap: Record<string, string> = {
+        fantasy: "fantasy art style, magical, mystical, detailed fantasy environment",
+        "sci-fi": "science fiction style, futuristic, high-tech, cinematic lighting",
+        mystery: "dark atmospheric style, moody lighting, noir aesthetic, mysterious",
+        romance: "romantic style, soft lighting, warm colors, emotional scene",
+        horror: "horror style, dark, eerie, unsettling, atmospheric horror scene",
+        adventure: "adventure style, dynamic, epic landscape, dramatic lighting",
+        historical: "historical style, period accurate details, vintage aesthetic",
+        "fairy-tale": "fairy tale style, enchanted, whimsical, storybook illustration"
+      };
       
-      console.log("Calling Stable Diffusion API via Replicate with prompt:", imagePrompt);
+      const stylePrompt = styleMap[genre] || styleMap.fantasy;
+      const enhancedPrompt = `${stylePrompt}, ${prompt.substring(0, 200)}`;
       
-      // Call Stable Diffusion API via Replicate
+      console.log("Calling Stable Diffusion API via Replicate with enhanced prompt:", enhancedPrompt);
+      
+      // Call Stable Diffusion API via Replicate with improved parameters
       const response = await fetch("https://api.replicate.com/v1/predictions", {
         method: "POST",
         headers: {
@@ -394,11 +407,14 @@ export const generateImage = async (prompt: string, genre: string): Promise<stri
         body: JSON.stringify({
           version: "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b", // SD v2.1
           input: {
-            prompt: imagePrompt,
-            negative_prompt: "blurry, bad anatomy, extra limbs, deformed, disfigured, text, watermark",
+            prompt: enhancedPrompt,
+            negative_prompt: "blurry, bad anatomy, extra limbs, deformed, disfigured, text, watermark, signature, low quality, pixelated",
             width: 768,
             height: 512,
-            num_outputs: 1
+            num_outputs: 1,
+            guidance_scale: 7.5,  // Increased for better prompt adherence
+            num_inference_steps: 30, // More steps for better quality
+            seed: Math.floor(Math.random() * 1000000) // Random seed for variety
           }
         }),
       });

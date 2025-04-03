@@ -1,12 +1,11 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play, Pause, Volume2, VolumeX, Save, Share2, Heart, Loader2, RefreshCw } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Save, Share2, Heart, Loader2, RefreshCw, ImageIcon } from 'lucide-react';
 import { useStory } from '@/context/StoryContext';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { generateAudio } from '@/services/OllamaService';
+import { generateAudio, generateImage } from '@/services/OllamaService';
 
 interface StoryDisplayProps {
   title: string;
@@ -25,29 +24,27 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [audioUrl, setAudioUrl] = useState(initialAudioUrl || "");
   const [audioError, setAudioError] = useState<string | null>(null);
-  const [selectedVoice, setSelectedVoice] = useState("adam"); // Default to Adam voice
-  
+  const [selectedVoice, setSelectedVoice] = useState("adam");
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { id } = useParams<{ id: string }>();
   const { currentStory, savedStories, saveStory } = useStory();
 
-  // Find the full story object
   const storyObj = currentStory?.id === id 
     ? currentStory 
     : savedStories.find(s => s.id === id);
 
   useEffect(() => {
-    // If there's no audio URL but we have content, generate audio for the first paragraph
     if (!audioUrl && content.length > 0 && !isGeneratingAudio) {
       handleGenerateAudio();
     }
   }, [content, audioUrl]);
 
   useEffect(() => {
-    // Initialize audio element
     if (audioUrl) {
       if (audioRef.current) {
-        // Clean up previous audio instance
         audioRef.current.removeEventListener('timeupdate', updateProgress);
         audioRef.current.removeEventListener('ended', handleAudioEnded);
         audioRef.current.pause();
@@ -55,20 +52,17 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       
       audioRef.current = new Audio(audioUrl);
       
-      // Set up event listeners
       audioRef.current.addEventListener('timeupdate', updateProgress);
       audioRef.current.addEventListener('ended', handleAudioEnded);
       audioRef.current.addEventListener('error', handleAudioError);
       audioRef.current.addEventListener('canplaythrough', handleCanPlayThrough);
       
-      // Set volume
       audioRef.current.volume = volume;
       
       console.log("Audio element initialized with URL:", audioUrl);
       setAudioError(null);
       
       return () => {
-        // Clean up event listeners
         if (audioRef.current) {
           audioRef.current.removeEventListener('timeupdate', updateProgress);
           audioRef.current.removeEventListener('ended', handleAudioEnded);
@@ -92,7 +86,6 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     toast.error("Failed to play audio. Please try regenerating the audio.");
   };
 
-  // Handle audio progress updates
   const updateProgress = () => {
     if (audioRef.current) {
       const progress = (audioRef.current.currentTime / audioRef.current.duration) * 100;
@@ -100,17 +93,14 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     }
   };
 
-  // Handle audio end
   const handleAudioEnded = () => {
     setIsPlaying(false);
     setAudioProgress(0);
     
-    // Auto-advance to next paragraph if available
     if (currentParagraph < content.length - 1) {
       const nextParagraph = currentParagraph + 1;
       setCurrentParagraph(nextParagraph);
       
-      // Generate audio for the next paragraph
       handleGenerateAudio(nextParagraph);
     }
   };
@@ -123,14 +113,12 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       setAudioError(null);
       toast.info("Generating audio narration...");
       
-      // Generate audio for the specified paragraph
       const newAudioUrl = await generateAudio(content[paragraphIndex], selectedVoice);
       
       if (newAudioUrl) {
         setAudioUrl(newAudioUrl);
         setCurrentParagraph(paragraphIndex);
         
-        // If we have a story object, update it with the audio URL
         if (storyObj) {
           const updatedStory = {
             ...storyObj,
@@ -159,7 +147,6 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     if (isPlaying) {
       audioRef.current.pause();
     } else {
-      // Check if the audio is ready before playing
       if (audioRef.current.readyState >= 2) {
         audioRef.current.play().catch(error => {
           console.error("Error playing audio:", error);
@@ -193,7 +180,6 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     audioRef.current.volume = volumeValue;
     setVolume(volumeValue);
     
-    // Update mute state based on volume
     if (volumeValue === 0 && !isMuted) {
       setIsMuted(true);
     } else if (volumeValue > 0 && isMuted) {
@@ -226,7 +212,6 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
         .then(() => console.log('Successful share'))
         .catch((error) => console.log('Error sharing', error));
     } else {
-      // Fallback
       navigator.clipboard.writeText(window.location.href);
       toast.success('Link copied to clipboard!');
     }
@@ -234,13 +219,11 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
 
   const handleChangeVoice = (voice: string) => {
     setSelectedVoice(voice);
-    // Regenerate audio with the new voice
     if (content[currentParagraph]) {
       handleGenerateAudio(currentParagraph);
     }
   };
 
-  // Available voices
   const voices = [
     { id: "adam", name: "Adam (Male)" },
     { id: "antoni", name: "Antoni (Male)" },
@@ -249,13 +232,53 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     { id: "josh", name: "Josh (Male)" },
   ];
 
+  const handleRegenerateImage = async (index: number) => {
+    if (!storyObj || isGeneratingImage) return;
+    
+    setIsGeneratingImage(true);
+    setCurrentImageIndex(index);
+    
+    try {
+      toast.info("Regenerating image...");
+      
+      let imagePrompt = storyObj.prompt;
+      
+      if (content.length > 0) {
+        const relatedParagraphIndex = index * 3;
+        
+        if (relatedParagraphIndex < content.length) {
+          imagePrompt = content[relatedParagraphIndex].substring(0, 200);
+        }
+      }
+      
+      const newImage = await generateImage(imagePrompt, storyObj.genre);
+      
+      if (newImage) {
+        const updatedImages = [...storyObj.images];
+        updatedImages[index] = newImage;
+        
+        const updatedStory = {
+          ...storyObj,
+          images: updatedImages
+        };
+        
+        saveStory(updatedStory);
+        
+        toast.success("Image regenerated successfully!");
+      }
+    } catch (error) {
+      console.error("Error regenerating image:", error);
+      toast.error("Failed to regenerate image. Please try again.");
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Story Header */}
       <div className="mb-8 text-center">
         <h1 className="text-3xl md:text-4xl font-display font-bold mb-4">{title}</h1>
         
-        {/* Audio Controls */}
         <div className="mb-4">
           <div className="flex items-center justify-center gap-2 mb-2">
             <label htmlFor="voice-select" className="text-sm text-gray-600">Voice:</label>
@@ -344,7 +367,6 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
           </div>
         )}
         
-        {/* Action Buttons */}
         <div className="flex items-center justify-center gap-2">
           <Button variant="outline" size="sm" onClick={toggleFavorite}>
             <Heart className={`h-4 w-4 mr-1 ${isFavorited ? 'fill-red-500 text-red-500' : ''}`} /> 
@@ -359,18 +381,37 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
         </div>
       </div>
       
-      {/* Story Content */}
       <div className="paper-bg p-6 md:p-10 rounded-xl shadow-md">
         <div className="story-text prose max-w-none">
           {content.map((paragraph, index) => (
             <React.Fragment key={index}>
-              {index > 0 && index % 3 === 0 && images[(Math.floor(index / 3) - 1) % images.length] && (
-                <div className="my-8">
+              {index > 0 && index % 3 === 0 && images[Math.floor(index / 3) - 1] && (
+                <div className="my-8 relative">
                   <img 
-                    src={images[(Math.floor(index / 3) - 1) % images.length]} 
-                    alt={`Illustration for ${title}`}
+                    src={images[Math.floor(index / 3) - 1]} 
+                    alt={`Illustration for "${title}" - scene ${Math.floor(index / 3)}`}
                     className="w-full h-auto rounded-lg shadow-md" 
+                    loading="lazy"
                   />
+                  <div className="absolute top-2 right-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="bg-white bg-opacity-70 hover:bg-white"
+                      onClick={() => handleRegenerateImage(Math.floor(index / 3) - 1)}
+                      disabled={isGeneratingImage && currentImageIndex === Math.floor(index / 3) - 1}
+                    >
+                      {isGeneratingImage && currentImageIndex === Math.floor(index / 3) - 1 ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                      <span className="ml-1">Regenerate</span>
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 text-center italic">
+                    Image generated from story content. Click "Regenerate" for a new version.
+                  </p>
                 </div>
               )}
               <p className={`${currentParagraph === index && isPlaying ? 'bg-tale-light bg-opacity-50 p-2 -m-2 rounded transition-all' : ''}`}>
@@ -378,6 +419,33 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
               </p>
             </React.Fragment>
           ))}
+          
+          {content.length > 3 && images[Math.floor(content.length / 3)] && (
+            <div className="my-8 relative">
+              <img 
+                src={images[Math.floor(content.length / 3)]} 
+                alt={`Final illustration for "${title}"`}
+                className="w-full h-auto rounded-lg shadow-md" 
+                loading="lazy"
+              />
+              <div className="absolute top-2 right-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="bg-white bg-opacity-70 hover:bg-white"
+                  onClick={() => handleRegenerateImage(Math.floor(content.length / 3))}
+                  disabled={isGeneratingImage && currentImageIndex === Math.floor(content.length / 3)}
+                >
+                  {isGeneratingImage && currentImageIndex === Math.floor(content.length / 3) ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  <span className="ml-1">Regenerate</span>
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -95,12 +94,48 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       
       console.log("Paragraphs extracted:", paragraphs.length);
       
-      // Generate images
-      toast.info('Creating illustrations...');
-      const imageCount = Math.max(1, Math.ceil(paragraphs.length / 3));
+      // Generate images with more specific prompts from the content
+      toast.info('Creating illustrations for your story...');
+      
+      // Determine how many images to generate based on story length
+      const imageCount = Math.min(5, Math.max(2, Math.ceil(paragraphs.length / 3)));
       console.log("Generating", imageCount, "images");
       
-      const imagePromises = Array(imageCount).fill('').map(() => generateImage(prompt, genre));
+      // Create specific image prompts based on key paragraphs
+      const imagePrompts = [];
+      
+      // Add the main story prompt
+      imagePrompts.push(prompt);
+      
+      // Extract key moments from the story for additional images
+      if (paragraphs.length > 3) {
+        // Get paragraphs from different parts of the story
+        const middleIndex = Math.floor(paragraphs.length / 2);
+        const endIndex = paragraphs.length - 1;
+        
+        // Add first paragraph content
+        imagePrompts.push(paragraphs[0].substring(0, 200));
+        
+        // Add middle paragraph content if story is long enough
+        if (paragraphs.length > 6) {
+          imagePrompts.push(paragraphs[middleIndex].substring(0, 200));
+        }
+        
+        // Add content near the end
+        imagePrompts.push(paragraphs[endIndex].substring(0, 200));
+      }
+      
+      // Fill remaining image prompts if needed
+      while (imagePrompts.length < imageCount) {
+        const randomIndex = Math.floor(Math.random() * paragraphs.length);
+        imagePrompts.push(paragraphs[randomIndex].substring(0, 200));
+      }
+      
+      // Only keep unique prompts up to the desired count
+      const uniquePrompts = [...new Set(imagePrompts)].slice(0, imageCount);
+      
+      // Generate images in parallel
+      const imagePromises = uniquePrompts.map(imagePrompt => generateImage(imagePrompt, genre));
       const images = await Promise.all(imagePromises);
       
       console.log("Images generated:", images.length);
