@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -19,6 +18,20 @@ const StoryForm: React.FC = () => {
   
   const { generateNewStory, isGenerating } = useStory();
 
+  useEffect(() => {
+    if (!localStorage.getItem('elevenlabs_api_key')) {
+      localStorage.setItem('elevenlabs_api_key', 'sk_c91ce9c1e81ef5695bb7dd85ba2d51509f8beec837ca59a2');
+      console.log("ElevenLabs API key has been set");
+    }
+    
+    if (!localStorage.getItem('stable_diffusion_api_key')) {
+      localStorage.setItem('stable_diffusion_api_key', 'r8_IDmD4tRUlfB7qEe7ZjIvtyaDYkESZKO1F6B5P');
+      console.log("Replicate API key has been set");
+    }
+    
+    localStorage.setItem('use_cloud_api', 'true');
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -27,10 +40,17 @@ const StoryForm: React.FC = () => {
       return;
     }
     
+    console.log("Submitting story generation with:", {
+      title,
+      prompt,
+      genre, 
+      length,
+      model: aiModel
+    });
+    
     try {
       await generateNewStory(title, prompt, genre, length, aiModel);
     } catch (error) {
-      // Error is already handled in the context
       console.error("Error in form submission:", error);
     }
   };

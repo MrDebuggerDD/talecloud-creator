@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -78,18 +79,30 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       // Import the service dynamically to avoid circular dependencies
       const { generateStory, generateImage } = await import('../services/OllamaService');
       
+      console.log("Starting story generation with model:", model);
+      console.log("Story prompt:", prompt);
+      
       // Generate content from the selected AI model
       const content = await generateStory(prompt, genre, length, model);
+      
+      console.log("Story content generated, length:", content.length);
       
       // Split content into paragraphs
       const paragraphs = content
         .split('\n\n')
         .filter(p => p.trim().length > 0);
       
-      // Generate images (placeholder for now)
+      console.log("Paragraphs extracted:", paragraphs.length);
+      
+      // Generate images
+      toast.info('Creating illustrations...');
       const imageCount = Math.max(1, Math.ceil(paragraphs.length / 3));
+      console.log("Generating", imageCount, "images");
+      
       const imagePromises = Array(imageCount).fill('').map(() => generateImage(prompt, genre));
       const images = await Promise.all(imagePromises);
+      
+      console.log("Images generated:", images.length);
       
       // Use provided title or generate one from the content
       const storyTitle = title || `Story about ${prompt.slice(0, 20)}...`;
@@ -105,6 +118,8 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         createdAt: new Date(),
         model: model
       };
+      
+      console.log("Story object created:", story.id);
       
       // Audio will be generated on the story page
       setCurrentStory(story);
