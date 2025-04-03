@@ -539,23 +539,22 @@ export const generateAudio = async (text: string, voice: string = "onyx"): Promi
 
 const getVoiceId = (voice: string): string => {
   const voiceMap: Record<string, string> = {
-    onyx: "onyx", // Default male voice
-    alloy: "alloy", // Default female voice
-    echo: "echo", // Default neutral voice
-    fable: "fable", // Child-like voice
-    nova: "nova", // Expressive female voice
-    shimmer: "shimmer", // Warm female voice
-    // Premium voices
-    rachel: "21m00Tcm4TlvDq8ikWAM", // Rachel
-    domi: "AZnzlk1XvdvUeBnXmlld", // Domi
-    bella: "EXAVITQu4vr4xnSDxMaL", // Bella
-    antoni: "ErXwobaYiN019PkySvjV", // Antoni
-    elli: "MF3mGyEYCl7XYWbV9V6O", // Elli
-    josh: "TxGEqnHWrfWFTfGW9XjX", // Josh
-    arnold: "VR6AewLTigWG4xSOukaG", // Arnold
-    adam: "pNInz6obpgDQGcFmaJgB", // Adam
-    sam: "yoZ06aMxZJJ28mfd3POQ", // Sam
+    onyx: "jBpfuIE2acCO8z3wKNLl",
+    alloy: "pNInz6obpgDQGcFmaJgB",
+    echo: "MF3mGyEYCl7XYWbV9V6O",
+    fable: "XB0fDUnXU5powFXDhCwa",
+    nova: "EXAVITQu4vr4xnSDxMaL",
+    shimmer: "XrExE9yKIg1WjnnlVkGX",
+    rachel: "21m00Tcm4TlvDq8ikWAM",
+    domi: "AZnzlk1XvdvUeBnXmlld",
+    bella: "EXAVITQu4vr4xnSDxMaL",
+    antoni: "ErXwobaYiN019PkySvjV",
+    elli: "MF3mGyEYCl7XYWbV9V6O",
+    josh: "TxGEqnHWrfWFTfGW9XjX",
+    arnold: "VR6AewLTigWG4xSOukaG",
+    adam: "pNInz6obpgDQGcFmaJgB",
+    sam: "yoZ06aMxZJJ28mfd3POQ",
   };
   
-  return voiceMap[voice] || "onyx";
+  return voiceMap[voice] || "pNInz6obpgDQGcFmaJgB";
 }

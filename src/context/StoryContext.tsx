@@ -13,6 +13,7 @@ interface Story {
   genre: string;
   prompt: string;
   model?: string;
+  voice?: string; // Added voice preference
 }
 
 interface StoryContextType {
@@ -116,7 +117,8 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         genre: genre,
         prompt: prompt,
         createdAt: new Date(),
-        model: model
+        model: model,
+        voice: 'adam' // Default voice
       };
       
       console.log("Story object created:", story.id);

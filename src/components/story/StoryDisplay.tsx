@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play, Pause, Volume2, VolumeX, Save, Share2, Heart, Loader2 } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Save, Share2, Heart, Loader2, RefreshCw } from 'lucide-react';
 import { useStory } from '@/context/StoryContext';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -25,6 +25,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [audioUrl, setAudioUrl] = useState(initialAudioUrl || "");
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [selectedVoice, setSelectedVoice] = useState("adam"); // Default to Adam voice
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { id } = useParams<{ id: string }>();
@@ -114,7 +115,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     }
   };
 
-  const handleGenerateAudio = async (paragraphIndex = 0) => {
+  const handleGenerateAudio = async (paragraphIndex = currentParagraph) => {
     if (isGeneratingAudio) return;
     
     try {
@@ -123,10 +124,11 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       toast.info("Generating audio narration...");
       
       // Generate audio for the specified paragraph
-      const newAudioUrl = await generateAudio(content[paragraphIndex], "onyx");
+      const newAudioUrl = await generateAudio(content[paragraphIndex], selectedVoice);
       
       if (newAudioUrl) {
         setAudioUrl(newAudioUrl);
+        setCurrentParagraph(paragraphIndex);
         
         // If we have a story object, update it with the audio URL
         if (storyObj) {
@@ -230,6 +232,23 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     }
   };
 
+  const handleChangeVoice = (voice: string) => {
+    setSelectedVoice(voice);
+    // Regenerate audio with the new voice
+    if (content[currentParagraph]) {
+      handleGenerateAudio(currentParagraph);
+    }
+  };
+
+  // Available voices
+  const voices = [
+    { id: "adam", name: "Adam (Male)" },
+    { id: "antoni", name: "Antoni (Male)" },
+    { id: "elli", name: "Elli (Female)" },
+    { id: "bella", name: "Bella (Female)" },
+    { id: "josh", name: "Josh (Male)" },
+  ];
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Story Header */}
@@ -237,6 +256,32 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
         <h1 className="text-3xl md:text-4xl font-display font-bold mb-4">{title}</h1>
         
         {/* Audio Controls */}
+        <div className="mb-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <label htmlFor="voice-select" className="text-sm text-gray-600">Voice:</label>
+            <select
+              id="voice-select"
+              value={selectedVoice}
+              onChange={(e) => handleChangeVoice(e.target.value)}
+              className="text-sm border rounded px-2 py-1"
+              disabled={isGeneratingAudio}
+            >
+              {voices.map(voice => (
+                <option key={voice.id} value={voice.id}>{voice.name}</option>
+              ))}
+            </select>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-2 p-1 h-8 w-8"
+              onClick={() => handleGenerateAudio()}
+              disabled={isGeneratingAudio}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        
         <div className="flex items-center justify-center gap-3 mb-6">
           <Button 
             onClick={audioError ? () => handleGenerateAudio() : togglePlay} 
