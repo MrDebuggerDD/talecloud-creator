@@ -35,9 +35,6 @@ const Navbar: React.FC = () => {
           <Link to="/create" className="text-gray-700 hover:text-tale-primary transition-colors">
             Create
           </Link>
-          <Link to="/library" className="text-gray-700 hover:text-tale-primary transition-colors">
-            Library
-          </Link>
           <Link to="/about" className="text-gray-700 hover:text-tale-primary transition-colors">
             About
           </Link>
@@ -78,11 +75,6 @@ const Navbar: React.FC = () => {
             </div>
           </div>
           
-          <Button asChild variant="ghost" className="hidden md:flex">
-            <Link to="/login">
-              Login
-            </Link>
-          </Button>
           <Button asChild className="bg-tale-primary hover:bg-tale-secondary">
             <Link to="/create">
               <BookOpen className="h-4 w-4 mr-2" /> Create Story
