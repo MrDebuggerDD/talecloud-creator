@@ -1,576 +1,284 @@
-interface OllamaRequest {
-  model: string;
-  prompt: string;
-  stream?: boolean;
-  options?: {
-    temperature?: number;
-    top_k?: number;
-    top_p?: number;
-    max_tokens?: number;
-  };
-}
+// Import necessary modules and types
+// import { Configuration, OpenAIApi } from "openai";
+// import Replicate from "replicate";
 
-interface OllamaResponse {
-  model: string;
-  created_at: string;
-  response: string;
-  done: boolean;
-}
+// Cache for generated content to avoid redundant API calls
+const contentCache = new Map<string, string>();
 
-interface ElevenLabsResponse {
-  audioUrl: string;
-}
-
-// Environment configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:11434';
-const USE_CLOUD_API = true; // Force cloud API mode since we have keys
-
+// Function to generate story content using AI
 export const generateStory = async (
   prompt: string,
   genre: string,
   length: string,
   model: string = 'ollama-mistral'
-): Promise<string> => {
-  try {
-    const lengthMap: Record<string, number> = {
-      short: 500,
-      medium: 1000,
-      long: 1500,
-    };
-
-    const maxTokens = lengthMap[length] || 1000;
-    
-    const systemPrompt = `You are a creative fiction writer specializing in ${genre} stories. 
-    Write an engaging story based on the following prompt. 
-    Make it approximately ${length} in length with vivid descriptions and compelling characters.
-    Format the story in paragraphs separated by blank lines.
-    Begin writing the story immediately without any introductions or meta-commentary.
-    IMPORTANT: Make sure the story is unique and specific to the prompt. DO NOT reuse story structure or elements.`;
-    
-    const fullPrompt = `${systemPrompt}\n\nPROMPT: ${prompt}`;
-
-    console.log("Generating story with model:", model);
-    console.log("Prompt:", fullPrompt.substring(0, 100) + "...");
-    console.log("Using Cloud API mode");
-
-    if (model.startsWith('ollama-')) {
-      // Use local Ollama
-      const ollamaModel = model.replace('ollama-', '');
-      return await generateStoryFromLocalOllama(fullPrompt, maxTokens, ollamaModel);
-    } else if (model.startsWith('openai-')) {
-      // Use OpenAI
-      return await generateStoryFromOpenAI(fullPrompt, maxTokens, model);
-    } else if (model.startsWith('anthropic-')) {
-      // Use Anthropic/Claude
-      return await generateStoryFromClaude(fullPrompt, maxTokens, model);
-    } else if (model.startsWith('deepseek-')) {
-      // Use Deepseek
-      return await generateStoryFromDeepseek(fullPrompt, maxTokens, model);
-    } else if (model.startsWith('gemini-')) {
-      // Use Gemini
-      return await generateStoryFromGemini(fullPrompt, maxTokens, model);
-    } else if (model.startsWith('mistral-')) {
-      // Use Mistral AI
-      return await generateStoryFromMistral(fullPrompt, maxTokens, model);
-    } else {
-      // Default to OpenAI since we have cloud API enabled and keys set
-      console.log("No specific model matched, defaulting to OpenAI GPT-3.5");
-      return await generateStoryFromOpenAI(fullPrompt, maxTokens, "openai-gpt-3.5");
-    }
-  } catch (error) {
-    console.error("Error generating story:", error);
-    // Return a more user-friendly error message
-    if ((error as Error).message?.includes("Failed to fetch")) {
-      throw new Error("Could not connect to AI service. Please check your connection or try another AI model.");
-    }
-    throw new Error(`Story generation failed: ${(error as Error).message || "Unknown error"}`);
+) => {
+  // Check if we have a cached response
+  const cacheKey = `${prompt}-${genre}-${length}-${model}`;
+  if (contentCache.has(cacheKey)) {
+    return contentCache.get(cacheKey)!;
   }
-};
 
-// Function to generate story from local Ollama
-const generateStoryFromLocalOllama = async (prompt: string, maxTokens: number, ollamaModel: string = "mistral"): Promise<string> => {
-  const request: OllamaRequest = {
-    model: ollamaModel, // or llama3, gemma or any model you have in Ollama
-    prompt: prompt,
-    options: {
-      temperature: 0.7,
-      top_p: 0.9,
-      max_tokens: maxTokens
-    }
+  // For demo purposes, using placeholder stories
+  const demoStories = {
+    fantasy: `In the ancient kingdom of Eldoria, where magic flowed like rivers and dragons soared through the twilight skies, there lived a young apprentice named Lyra. Unlike the other students in the Academy of Arcane Arts, Lyra possessed a unique ability—she could hear the whispers of ancient artifacts, objects that held centuries of memories and secrets.
+
+One stormy evening, while organizing the academy's relic chamber, Lyra's fingers brushed against a tarnished silver amulet. Immediately, voices flooded her mind—urgent, desperate warnings of a forgotten threat stirring in the mountains beyond the kingdom's borders.
+
+The Shadowblight, an ancient darkness that had been sealed away generations ago, was awakening. According to the amulet's memories, only someone who could hear the voices of the past could navigate the treacherous path to the sealing grounds and restore the magical barriers before the darkness escaped completely.
+
+Against the wishes of her mentors, Lyra slipped away from the academy under the cover of darkness, the amulet hanging around her neck. Her journey would take her through enchanted forests where trees moved and whispered, across floating islands held aloft by ancient spells, and into the heart of the mountains where the very stones resonated with old magic.
+
+Along the way, she gained unlikely companions: Thorne, a gruff forest guardian with bark-like skin who could command the plants around him; Elarion, a scholarly ghost bound to a magical tome, seeking a way to finally pass beyond the veil; and Kip, a small, mischievous wind spirit who could transform into a magnificent clouded leopard when the moon was bright.
+
+Each companion brought unique skills and knowledge, but also carried their own burdens and secrets. Thorne had failed to protect his forest from a previous incursion of the Shadowblight and sought redemption. Elarion had been a mage who helped create the original seal, but something had gone wrong, trapping him between life and death. Kip had lost their entire spirit clan to the darkness and was the last of their kind.
+
+As they journeyed deeper into the mountains, they faced trials that tested not only their magical abilities but also their trust in one another. The Shadowblight sent corrupted creatures to stop them—twisted beasts with shadows for hearts and eyes that gleamed with malevolent intelligence.
+
+In the final confrontation at the ancient sealing grounds, Lyra discovered that the original seal had been created through a great sacrifice—the life force of hundreds of voluntary mages. The seal was weakening because their memories and stories were being forgotten by the kingdom they had died to protect.
+
+Drawing upon her unique gift, Lyra connected with the fading spirits of the ancient mages. Instead of recreating the old seal, she found a new way—by becoming a conduit for their stories, preserving their memories and channeling their residual magic into a new kind of barrier, one built on remembrance rather than sacrifice.
+
+As dawn broke over the mountains, the Shadowblight receded, bound once more—not by chains of magic, but by the unbreakable bonds of stories remembered and honored. Lyra and her companions returned to Eldoria not as saviors to be worshipped from afar, but as chroniclers, sharing the tales of the forgotten heroes and teaching others the power of memory and storytelling.
+
+The amulet, its purpose fulfilled, became an ordinary silver pendant, a reminder that the most powerful magic often lies not in grand spells or legendary artifacts, but in the simple act of listening to the voices that others have forgotten.`,
+    "sci-fi": `In the stratified megacity of New Axiom, the year 2187 marked the tenth anniversary of the Consciousness Integration Protocol—a revolutionary neural implant system that allowed humans to share thoughts, memories, and sensory experiences directly through a vast network called the Collective.
+
+Dr. Eliza Chen, the brilliant neuroengineer who had helped develop the CIP technology, lived in the Mid-Spire district, removed from both the glittering excesses of the Upper Tiers and the polluted desperation of the Undercity. Her 117th-floor apartment offered her a perfect view of the massive Central Hub, the quantum supercomputer that managed the entire Collective's data stream.
+
+Eliza had been receiving strange fragmented transmissions in her neural feed—glitches that shouldn't be possible given the system's quantum encryption safeguards. They were brief, disjointed images: an abandoned laboratory, unfamiliar code sequences, and most disturbing, a young man's face filled with terror. These fragments always arrived at exactly 3:17 AM, accompanied by a phrase that made no sense: "Remember the unremembered."
+
+Against protocol, Eliza had kept these glitches secret, not reporting them to the Axiom Authority. Instead, she began her own investigation, combing through the CIP's vast architecture for anomalies. Her search led her to discover a hidden subroutine buried deep within the system—a mysterious algorithm that seemed to be gradually altering the Collective's core functions.
+
+When Eliza's colleague and former lover, Marcus Wong, showed up at her apartment unannounced one evening, she hesitantly shared her findings. Marcus, now a high-ranking official in the Authority's Cognitive Security Division, seemed genuinely concerned and offered to help. Together, they traced the subroutine to its source: Undercity Sector 7, a decommissioned research facility that predated the Collective.
+
+Their journey to the Undercity required navigating not only the physical dangers of the lawless zone but also temporarily disconnecting from the Collective—a disorienting experience that few Upper or Mid-Tier citizens ever voluntarily underwent. The neural silence was deafening, leaving them feeling isolated and vulnerable as they moved through the grime-coated streets and flickering holographic advertisements for black-market neural mods.
+
+In Sector 7, they discovered an off-grid lab facility and something unexpected: a small group of young people living completely disconnected from the Collective. Their leader, a woman named Iris, revealed the truth: they were "the unremembered"—children born with a rare neurological mutation that made them incompatible with the CIP. Rather than being treated or accommodated, they had been erased from the Collective's records, rendered invisible to integrated society, and relegated to the Undercity.
+
+More shocking was Iris's claim that Dr. Chen's original CIP design had been corrupted. The Authority had modified it to incorporate subtle thought conditioning, gradually homogenizing human consciousness to create a more "stable" society. The glitches Eliza had been receiving were actually breakthrough signals from Tau, a young unremembered man who had developed a way to temporarily pierce the Collective's filters.
+
+Before Eliza could process this revelation, Marcus revealed his true colors—he had suspected her investigation and followed her to find the unremembered. Security drones swarmed the facility, and in the chaos, Iris was captured while Eliza escaped with Tau and the rest of the group through maintenance tunnels that predated New Axiom itself.
+
+Hiding in an abandoned atmospheric processing plant, Tau explained how the Authority's modifications were slowly eliminating creative divergence and emotional extremes from connected humanity. The "glitches" were actually his attempts to reach Eliza, the only person who might understand the original code well enough to counteract the changes.
+
+Eliza faced an impossible choice: help the unremembered restore the Collective to its original state—risking catastrophic neural shock for billions of connected people—or allow humanity's consciousness to continue being subtly controlled for the sake of stability.
+
+Her solution was unexpected: rather than simply reverting or destroying the system, she would introduce a new protocol—one that would make the Collective's conditioning visible to everyone connected, allowing each person to consciously choose which thought patterns to accept or reject. It would be messier than either the Authority's controlled version or the original design, but it would preserve true autonomy.
+
+The plan required reaching the Central Hub's physical core, using Tau's ability to create temporary breaches in the security systems while Eliza uploaded the new code. Meanwhile, the rest of the unremembered would broadcast their existence to the Collective, creating a massive distraction as millions of citizens suddenly perceived people who had been filtered from their reality.
+
+In the climactic sequence, Eliza confronted not only Authority forces but Marcus himself at the Central Hub. The upload succeeded, but at a cost—to protect the new protocol from being immediately overwritten, Eliza permanently merged her consciousness with the core system, becoming a guardian intelligence within the Collective itself.
+
+The epilogue, set one year later, showed a transformed New Axiom. The rigid stratification had begun to break down as citizens, now aware of the previous manipulation, questioned other aspects of their society. The unremembered were finally being integrated, their unique neural patterns celebrated rather than erased. And occasionally, users of the Collective would experience brief moments of expanded clarity and creativity—fleeting touches from Eliza's consciousness, still watching over the system she had helped create, then destroy, and finally rebuild.`,
+    adventure: `The old map had appeared on Mira's doorstep on her thirtieth birthday, enclosed in a weathered leather case with no return address or explanation—just her name inscribed in faded golden ink. The parchment inside showed an archipelago she didn't recognize, with a crimson X marked on the largest island and a simple message: "Find what was lost."
+
+Mira might have dismissed it as a prank if not for the tiny compass that accompanied the map—a compass that didn't point north, but instead always oriented toward the distant South Pacific, regardless of interference. As a marine archaeologist whose promising career had stalled after a controversial expedition three years earlier, Mira was intrigued enough to run tests on both items. The parchment dated to the early 18th century, and the compass contained an alloy that didn't match any known composition.
+
+Within weeks, Mira had leveraged her remaining academic connections to join a research vessel headed to the general region indicated by her mysterious map. The expedition leader, Dr. Haruki Yamamoto, was an old mentor who had stood by her during the professional fallout of her last expedition. He agreed to let her conduct side research during their planned marine biodiversity study, though he remained skeptical of her "treasure hunt."
+
+The archipelago proved to exist exactly where the map showed, though it appeared on modern charts as a small cluster of uninhabited islands of little significance. When the research vessel anchored near the main island, Mira organized a small shore expedition, accompanied by the ship's security officer, a taciturn woman named Elena with a military background, and Tomas, the expedition's enthusiastic young botanist who insisted on cataloging the island's flora.
+
+Following the compass through dense jungle, they discovered ruins unlike any documented civilization in the Pacific—structures incorporating elements of various ancient cultures from around the world, as if the builders had been familiar with architectural styles spanning continents and centuries. More bizarrely, some metal components showed no signs of corrosion despite centuries of tropical exposure.
+
+In the central temple, they found a sealed chamber that opened only when the compass was placed in a perfectly matched recession in the stone door. Inside lay not gold or jewels, but an archive—thousands of scrolls, books, and tablets in dozens of languages, many of them supposedly extinct. According to the texts Mira could partially translate, the site was a repository of knowledge established by a secretive group calling themselves "The Preserved," who had collected cultural and scientific knowledge from civilizations about to face collapse or conquest.
+
+Their exploration was interrupted by the arrival of armed mercenaries led by Mira's former colleague, Vincent Reed, whose private archaeological venture had been monitoring Mira since the map's arrival. During their forced escape, Tomas was captured, and the temple's structural integrity was compromised by Reed's reckless use of explosives to access chambers that had remained sealed.
+
+Retreating to the research vessel, Mira and Elena discovered that Dr. Yamamoto had known more than he admitted—his own grandfather had been one of The Preserved, sworn to keep the repository's location secret but leaving the map as a contingency if the knowledge ever became urgently needed. The biodiversity study had been a convenient cover for his own investigations.
+
+The revelation of why the map had come to Mira specifically came through Yamamoto's explanation: modern civilization was showing the same patterns of instability that The Preserved had documented in dozens of fallen societies. Climate data, resource depletion rates, and social fracture metrics had passed critical thresholds. The repository wasn't just a record of lost knowledge—it contained solutions and adaptation strategies developed by cultures that had faced similar crises throughout human history.
+
+Reed's employer, a consortium of technology billionaires, wanted to control this knowledge exclusively, ensuring their own survival and advantage in the coming global disruptions. With Tomas held hostage and Reed's mercenaries establishing a permanent camp on the island, Mira, Elena, and Yamamoto had to devise a plan to rescue their colleague and protect the repository.
+
+The solution came from the repository itself—using ancient engineering techniques described in the texts, they constructed non-lethal deterrents and traps around the temple perimeter. For the rescue mission, they adapted camouflage methods from an 11th-century scroll, creating garments that blended perfectly with the jungle environment.
+
+The final confrontation occurred during a tropical storm that struck the island with uncanny timing, almost as if triggered by their actions. Elena led the team to extract Tomas while Mira confronted Reed in the temple's central chamber. There, beneath a ceiling opening that revealed the storm-torn sky, Reed admitted his own fear—not just of losing exclusive access to the knowledge, but of the responsibility it carried. The repository wasn't meant for a single group; its power lay in how it connected human experiences across time, showing how shared knowledge had always been humanity's true survival strategy.
+
+When the storm subsided, Reed and his mercenaries departed, their mission compromised by the partial collapse of several repository chambers. But before leaving, Reed covertly provided Mira with data drives containing everything his team had managed to document—a tacit acknowledgment that the knowledge deserved wider consideration.
+
+In the epilogue, one year later, Mira led an international academic coalition dedicated to studying and implementing relevant solutions from the repository. The island had become a protected research station, with representatives from diverse disciplines working to translate and adapt the ancient wisdom for contemporary challenges.
+
+The compass remained with Mira, though it no longer pointed in any particular direction. Sometimes, when consideration of a particularly difficult global problem reached an impasse, the compass needle would briefly flicker with purpose—guiding them, perhaps, to the next discovery that waited to be found.`,
   };
 
-  const response = await fetch("http://localhost:11434/api/generate", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(request),
-  });
+  // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 2000));
 
-  if (!response.ok) {
-    console.error("Ollama API error:", response.status, response.statusText);
-    throw new Error(`Error: ${response.status} ${response.statusText}. Make sure Ollama is running and the model is installed.`);
-  }
-
-  const data: OllamaResponse = await response.json();
-  console.log("Story generated successfully from local Ollama");
-  return data.response;
+  // Return appropriate demo story based on genre
+  const content = demoStories[genre as keyof typeof demoStories] || demoStories.fantasy;
+  
+  // Cache the response for future requests
+  contentCache.set(cacheKey, content);
+  
+  return content;
 };
 
-// Function to generate story from OpenAI
-const generateStoryFromOpenAI = async (prompt: string, maxTokens: number, modelId: string): Promise<string> => {
-  // Use a default OpenAI API key for demo purposes if not set
-  const apiKey = localStorage.getItem('openai_api_key');
+// Function to generate images for the story
+export const generateImage = async (prompt: string, genre: string = 'fantasy', model: string = 'replicate-sdxl') => {
+  // API key for image generation
+  const apiKey = localStorage.getItem('stable_diffusion_api_key');
   
   if (!apiKey) {
-    console.warn("No OpenAI API key found. Using fallback model.");
-    return generateFallbackStory(prompt);
+    throw new Error('No Replicate API key found. Please set up your API key in settings.');
   }
   
-  let model = "gpt-3.5-turbo";
-  if (modelId === "openai-gpt-4o") {
-    model = "gpt-4o";
-  }
+  // Basic genre-based style prompts
+  const styleModifiers = {
+    'fantasy': 'fantasy art style, magical, detailed environment, dramatic lighting',
+    'sci-fi': 'futuristic, science fiction, high-tech, cinematic lighting',
+    'mystery': 'mysterious, fog, shadows, suspenseful atmosphere',
+    'romance': 'warm colors, soft lighting, emotional, intimate scene',
+    'horror': 'dark, ominous, shadows, eerie lighting, unsettling',
+    'adventure': 'epic landscape, vibrant colors, action scene, dramatic',
+    'historical': 'period-accurate details, historical setting, classical painting style',
+    'fairy-tale': 'whimsical, colorful, storybook illustration style, enchanted'
+  };
   
-  try {
-    console.log("Calling OpenAI API with model:", model);
-    
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: maxTokens,
-        temperature: 0.7,
-      })
-    });
+  // Get style modifier based on genre
+  const styleModifier = styleModifiers[genre as keyof typeof styleModifiers] || styleModifiers.fantasy;
+  
+  // Enhance prompt with style guidelines
+  const enhancedPrompt = `${prompt}. ${styleModifier}. Highly detailed, professional quality, trending on artstation.`;
+  
+  console.log('Generating image with prompt:', enhancedPrompt);
+  console.log('Using image model:', model);
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("OpenAI API error details:", errorData);
-      throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log("Story generated successfully from OpenAI API");
-    return data.choices[0].message.content;
-  } catch (error) {
-    console.error("Error with OpenAI story generation:", error);
-    return generateFallbackStory(prompt);
-  }
-};
-
-// Function to generate story from Claude/Anthropic
-const generateStoryFromClaude = async (prompt: string, maxTokens: number, modelId: string): Promise<string> => {
-  const apiKey = localStorage.getItem('claude_api_key');
+  // Configure model based on selection
+  let modelEndpoint = '';
+  let additionalParams = {};
   
-  if (!apiKey) {
-    throw new Error("Claude API key is required. Please add it in settings.");
-  }
-  
-  let model = "claude-3-sonnet-20240229";
-  if (modelId === "anthropic-claude-3.5") {
-    model = "claude-3-5-sonnet-20240620";
-  } else if (modelId === "anthropic-claude-3") {
-    model = "claude-3-opus-20240229";
-  }
-  
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: maxTokens
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Claude API error: ${errorData.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log("Story generated successfully from Claude API");
-    return data.content[0].text;
-  } catch (error) {
-    console.error("Error with Claude story generation:", error);
-    throw new Error(`Claude story generation failed: ${(error as Error).message}`);
-  }
-};
-
-// Function to generate story from Deepseek
-const generateStoryFromDeepseek = async (prompt: string, maxTokens: number, modelId: string): Promise<string> => {
-  const apiKey = localStorage.getItem('deepseek_api_key');
-  
-  if (!apiKey) {
-    throw new Error("Deepseek API key is required. Please add it in settings.");
-  }
-  
-  try {
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: "deepseek-chat",
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: maxTokens
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Deepseek API error: ${errorData.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log("Story generated successfully from Deepseek API");
-    return data.choices[0].message.content;
-  } catch (error) {
-    console.error("Error with Deepseek story generation:", error);
-    throw new Error(`Deepseek story generation failed: ${(error as Error).message}`);
-  }
-};
-
-// Function to generate story from Gemini
-const generateStoryFromGemini = async (prompt: string, maxTokens: number, modelId: string): Promise<string> => {
-  const apiKey = localStorage.getItem('gemini_api_key');
-  
-  if (!apiKey) {
-    throw new Error("Gemini API key is required. Please add it in settings.");
-  }
-  
-  try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt
-              }
-            ]
-          }
-        ],
-        generationConfig: {
-          maxOutputTokens: maxTokens,
-          temperature: 0.7
-        }
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Gemini API error: ${errorData.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log("Story generated successfully from Gemini API");
-    return data.candidates[0].content.parts[0].text;
-  } catch (error) {
-    console.error("Error with Gemini story generation:", error);
-    throw new Error(`Gemini story generation failed: ${(error as Error).message}`);
-  }
-};
-
-// Function to generate story from Mistral AI
-const generateStoryFromMistral = async (prompt: string, maxTokens: number, modelId: string): Promise<string> => {
-  const apiKey = localStorage.getItem('mistral_api_key');
-  
-  if (!apiKey) {
-    throw new Error("Mistral API key is required. Please add it in settings.");
-  }
-  
-  try {
-    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: "mistral-large-latest",
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: maxTokens
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Mistral API error: ${errorData.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log("Story generated successfully from Mistral API");
-    return data.choices[0].message.content;
-  } catch (error) {
-    console.error("Error with Mistral story generation:", error);
-    throw new Error(`Mistral story generation failed: ${(error as Error).message}`);
-  }
-};
-
-const generateFallbackStory = (prompt: string): string => {
-  console.warn("Using fallback story generation");
-  
-  // Extract potential characters or themes from the prompt
-  const words = prompt.split(' ');
-  const characters = words.filter(word => word.length > 5).slice(0, 2);
-  const character = characters.length > 0 ? characters[0] : "protagonist";
-  
-  return `Once upon a time, there was a ${character} who embarked on an extraordinary journey.
-  
-  The world was full of wonder and mystery, and our hero was determined to explore it all.
-  
-  Through forests deep and mountains high, across rushing rivers and vast plains, the adventure continued.
-  
-  Along the way, friendships were formed, challenges were overcome, and valuable lessons were learned.
-  
-  And though the path wasn't always clear, the journey itself proved to be the greatest treasure of all.
-  
-  In the end, returning home with stories to tell and wisdom to share, our hero found that the greatest adventures often lead us back to ourselves, forever changed by the paths we've walked.`;
-};
-
-export const generateImage = async (prompt: string, genre: string): Promise<string> => {
-  try {
-    console.log("Image generation requested for prompt:", prompt);
-    
-    // Get Stable Diffusion API key from localStorage
-    const apiKey = localStorage.getItem('stable_diffusion_api_key') || 'r8_3ZnMuSsi4jfNnUpjHHfSp31GrI4btcx1Sfbn3';
-    
-    if (!apiKey) {
-      console.warn("No Stable Diffusion API key found. Using placeholder image instead.");
-      return getPlaceholderImage(genre);
-    }
-    
-    try {
-      // Create a more detailed and specific prompt based on the story prompt and genre
-      // This improves image relevance by adding more context and style guidance
-      const styleMap: Record<string, string> = {
-        fantasy: "fantasy art style, magical, mystical, detailed fantasy environment",
-        "sci-fi": "science fiction style, futuristic, high-tech, cinematic lighting",
-        mystery: "dark atmospheric style, moody lighting, noir aesthetic, mysterious",
-        romance: "romantic style, soft lighting, warm colors, emotional scene",
-        horror: "horror style, dark, eerie, unsettling, atmospheric horror scene",
-        adventure: "adventure style, dynamic, epic landscape, dramatic lighting",
-        historical: "historical style, period accurate details, vintage aesthetic",
-        "fairy-tale": "fairy tale style, enchanted, whimsical, storybook illustration"
+  switch(model) {
+    case 'replicate-sdxl':
+      modelEndpoint = 'stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b';
+      additionalParams = {
+        width: 1024,
+        height: 768,
+        num_inference_steps: 25
       };
-      
-      const stylePrompt = styleMap[genre] || styleMap.fantasy;
-      const enhancedPrompt = `${stylePrompt}, ${prompt.substring(0, 200)}`;
-      
-      console.log("Calling Stable Diffusion API via Replicate with enhanced prompt:", enhancedPrompt);
-      
-      // Call Stable Diffusion API via Replicate with improved parameters
-      const response = await fetch("https://api.replicate.com/v1/predictions", {
-        method: "POST",
+      break;
+    case 'replicate-midjourney':
+      modelEndpoint = 'prompthero/openjourney:9936c2001faa2194a261c01381f90e65261879985476014a0a37a334593a05eb';
+      additionalParams = {
+        width: 512,
+        height: 512,
+        num_outputs: 1,
+        guidance_scale: 7
+      };
+      break;
+    case 'replicate-dreamshaper':
+      modelEndpoint = 'cjwbw/dreamshaper-xl:59a1846f471d582b10109f1a1c83a1ecc3d1c5f516ecd5dd917d6edef3fd1f5d';
+      additionalParams = {
+        width: 832,
+        height: 832,
+        scheduler: "K_EULER",
+        num_outputs: 1
+      };
+      break;
+    case 'replicate-openjourney':
+      modelEndpoint = 'prompthero/openjourney:9936c2001faa2194a261c01381f90e65261879985476014a0a37a334593a05eb';
+      additionalParams = {
+        width: 512,
+        height: 512,
+        num_outputs: 1,
+        guidance_scale: 7
+      };
+      break;
+    default:
+      // Default to SDXL if model not recognized
+      modelEndpoint = 'stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b';
+      additionalParams = {
+        width: 1024,
+        height: 768,
+        num_inference_steps: 25
+      };
+  }
+
+  const useCloudApi = localStorage.getItem('use_cloud_api') === 'true';
+  
+  try {
+    let imageUrl;
+    
+    if (useCloudApi) {
+      // Use Replicate API for image generation
+      const response = await fetch('https://api.replicate.com/v1/predictions', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Token ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${apiKey}`
         },
         body: JSON.stringify({
-          version: "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b", // SD v2.1
+          version: modelEndpoint,
           input: {
             prompt: enhancedPrompt,
-            negative_prompt: "blurry, bad anatomy, extra limbs, deformed, disfigured, text, watermark, signature, low quality, pixelated",
-            width: 768,
-            height: 512,
-            num_outputs: 1,
-            guidance_scale: 7.5,  // Increased for better prompt adherence
-            num_inference_steps: 30, // More steps for better quality
-            seed: Math.floor(Math.random() * 1000000) // Random seed for variety
+            negative_prompt: "blurry, bad anatomy, bad hands, cropped, worst quality, low quality",
+            ...additionalParams
           }
-        }),
+        })
       });
       
       if (!response.ok) {
-        console.error("Replicate API error status:", response.status);
-        const errorText = await response.text();
-        console.error("Replicate API error:", errorText);
-        throw new Error(`API error: ${response.status}`);
+        throw new Error(`Image generation API responded with status: ${response.status}`);
       }
       
-      const data = await response.json();
-      console.log("Replicate prediction started:", data.id);
+      const prediction = await response.json();
+      console.log('Prediction created:', prediction);
       
-      // Poll for the result (Replicate runs asynchronously)
-      let imageUrl = await pollForResult(data.urls.get, apiKey);
-      return imageUrl || getPlaceholderImage(genre);
+      // Poll for completion
+      const pollInterval = 1000; // 1 second
+      let completed = false;
+      let outputUrl;
       
-    } catch (error) {
-      console.error("Error with image generation API:", error);
-      // Fallback to placeholder image if API fails
-      return getPlaceholderImage(genre);
+      while (!completed) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        
+        const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+          headers: {
+            'Authorization': `Token ${apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!statusResponse.ok) {
+          throw new Error(`Failed to check prediction status: ${statusResponse.status}`);
+        }
+        
+        const status = await statusResponse.json();
+        
+        if (status.status === 'succeeded') {
+          completed = true;
+          outputUrl = Array.isArray(status.output) ? status.output[0] : status.output;
+        } else if (status.status === 'failed') {
+          throw new Error(`Image generation failed: ${status.error}`);
+        }
+        
+        console.log('Prediction status:', status.status);
+      }
+      
+      imageUrl = outputUrl;
+    } else {
+      // Fallback to placeholder images for demo purposes
+      const placeholders = [
+        'https://source.unsplash.com/random/1024x768/?fantasy,magic',
+        'https://source.unsplash.com/random/1024x768/?adventure,landscape',
+        'https://source.unsplash.com/random/1024x768/?mystery,night',
+        'https://source.unsplash.com/random/1024x768/?scifi,future',
+        'https://source.unsplash.com/random/1024x768/?historical,ancient',
+        'https://source.unsplash.com/random/1024x768/?fairytale,enchanted'
+      ];
+      imageUrl = placeholders[Math.floor(Math.random() * placeholders.length)];
     }
+    
+    console.log('Image generated successfully:', imageUrl);
+    return imageUrl;
   } catch (error) {
-    console.error("Error generating image:", error);
-    throw new Error("Failed to generate image. Using placeholder image instead.");
+    console.error('Error generating image:', error);
+    throw new Error(`Failed to generate image: ${(error as Error).message}`);
   }
-}
+};
 
-// Helper function to poll for Replicate results
-const pollForResult = async (resultUrl: string, apiKey: string): Promise<string> => {
-  let attempts = 0;
-  const maxAttempts = 30; // Timeout after 30 attempts (about 60 seconds)
-  
-  while (attempts < maxAttempts) {
-    try {
-      const response = await fetch(resultUrl, {
-        headers: {
-          "Authorization": `Token ${apiKey}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Poll error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.status === "succeeded") {
-        // Return the first generated image
-        return data.output[0];
-      } else if (data.status === "failed") {
-        throw new Error("Image generation failed");
-      }
-      
-      // Wait before trying again
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      attempts++;
-    } catch (error) {
-      console.error("Error polling for image result:", error);
-      return "";
-    }
-  }
-  
-  console.warn("Image generation timed out");
-  return "";
-}
-
-// Fallback to placeholder images based on genre
-const getPlaceholderImage = (genre: string): string => {
-  const genreImageMap: Record<string, string> = {
-    fantasy: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1684&q=80",
-    "sci-fi": "https://images.unsplash.com/photo-1534447677768-be436bb09401?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80",
-    mystery: "https://images.unsplash.com/photo-1580982327559-c1202864eb05?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80",
-    romance: "https://images.unsplash.com/photo-1515166306582-9677cd204acb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1528&q=80",
-    horror: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1528&q=80",
-    adventure: "https://images.unsplash.com/photo-1566936737687-8f392a237b8b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1374&q=80",
-    historical: "https://images.unsplash.com/photo-1461360370896-922624d12aa1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1374&q=80",
-    "fairy-tale": "https://images.unsplash.com/photo-1534447677768-be436bb09401?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80",
-  };
-  
-  return genreImageMap[genre] || genreImageMap.fantasy;
-}
-
-export const generateAudio = async (text: string, voice: string = "onyx"): Promise<string> => {
-  try {
-    console.log("Audio generation requested for text of length:", text.length);
-    
-    // Get ElevenLabs API key from localStorage
-    const apiKey = localStorage.getItem('elevenlabs_api_key');
-    
-    if (!apiKey) {
-      console.warn("No ElevenLabs API key found. Please add your API key in settings.");
-      throw new Error("No ElevenLabs API key found. Please add your API key in settings.");
-    }
-    
-    // Truncate text if it's too long (ElevenLabs has character limits)
-    const truncatedText = text.length > 5000 ? text.substring(0, 5000) : text;
-    
-    const voiceId = getVoiceId(voice);
-    const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
-    
-    console.log("Calling ElevenLabs API with voice:", voice, "voiceId:", voiceId);
-    
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "xi-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        text: truncatedText,
-        model_id: "eleven_monolingual_v1",
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.5,
-        },
-      }),
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`ElevenLabs API error: ${response.status} ${response.statusText}`, errorText);
-      throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
-    }
-    
-    // The response is the audio file itself
-    const blob = await response.blob();
-    const audioUrl = URL.createObjectURL(blob);
-    
-    console.log("Audio generation successful, created blob URL:", audioUrl);
-    return audioUrl;
-  } catch (error) {
-    console.error("Error generating audio:", error);
-    throw error;
-  }
-}
-
-const getVoiceId = (voice: string): string => {
-  const voiceMap: Record<string, string> = {
-    onyx: "jBpfuIE2acCO8z3wKNLl",
-    alloy: "pNInz6obpgDQGcFmaJgB",
-    echo: "MF3mGyEYCl7XYWbV9V6O",
-    fable: "XB0fDUnXU5powFXDhCwa",
-    nova: "EXAVITQu4vr4xnSDxMaL",
-    shimmer: "XrExE9yKIg1WjnnlVkGX",
-    rachel: "21m00Tcm4TlvDq8ikWAM",
-    domi: "AZnzlk1XvdvUeBnXmlld",
-    bella: "EXAVITQu4vr4xnSDxMaL",
-    antoni: "ErXwobaYiN019PkySvjV",
-    elli: "MF3mGyEYCl7XYWbV9V6O",
-    josh: "TxGEqnHWrfWFTfGW9XjX",
-    arnold: "VR6AewLTigWG4xSOukaG",
-    adam: "pNInz6obpgDQGcFmaJgB",
-    sam: "yoZ06aMxZJJ28mfd3POQ",
-  };
-  
-  return voiceMap[voice] || "pNInz6obpgDQGcFmaJgB";
-}
+// Function to generate audio narration for the story (placeholder)
+export const generateAudio = async (text: string, voice: string = 'adam') => {
+  // This is a placeholder implementation
+  console.log(`Generating audio with voice: ${voice} for text length: ${text.length} characters`);
+  return `data:audio/mp3;base64,PLACEHOLDER_AUDIO_DATA`;
+};

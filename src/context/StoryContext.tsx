@@ -12,13 +12,14 @@ interface Story {
   genre: string;
   prompt: string;
   model?: string;
-  voice?: string; // Added voice preference
+  imageModel?: string;
+  voice?: string;
 }
 
 interface StoryContextType {
   currentStory: Story | null;
   savedStories: Story[];
-  generateNewStory: (title: string, prompt: string, genre: string, length: string, model?: string) => Promise<void>;
+  generateNewStory: (title: string, prompt: string, genre: string, length: string, model?: string, imageModel?: string) => Promise<void>;
   saveStory: (story: Story) => void;
   isGenerating: boolean;
 }
@@ -65,7 +66,14 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [savedStories]);
 
-  const generateNewStory = async (title: string, prompt: string, genre: string, length: string, model: string = 'ollama-mistral') => {
+  const generateNewStory = async (
+    title: string, 
+    prompt: string, 
+    genre: string, 
+    length: string, 
+    model: string = 'ollama-mistral',
+    imageModel: string = 'replicate-sdxl'
+  ) => {
     if (isGenerating) {
       toast.info('A story is already being generated');
       return;
@@ -80,6 +88,7 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const { generateStory, generateImage } = await import('../services/OllamaService');
       
       console.log("Starting story generation with model:", model);
+      console.log("Image generation with model:", imageModel);
       console.log("Story prompt:", prompt);
       
       // Generate content from the selected AI model
@@ -135,7 +144,7 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const uniquePrompts = [...new Set(imagePrompts)].slice(0, imageCount);
       
       // Generate images in parallel
-      const imagePromises = uniquePrompts.map(imagePrompt => generateImage(imagePrompt, genre));
+      const imagePromises = uniquePrompts.map(imagePrompt => generateImage(imagePrompt, genre, imageModel));
       const images = await Promise.all(imagePromises);
       
       console.log("Images generated:", images.length);
@@ -153,6 +162,7 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         prompt: prompt,
         createdAt: new Date(),
         model: model,
+        imageModel: imageModel,
         voice: 'adam' // Default voice
       };
       
