@@ -13,6 +13,18 @@ import { StoryProvider } from "./context/StoryContext";
 
 const queryClient = new QueryClient();
 
+// A wrapper component to avoid circular dependencies
+const AppRoutes = () => (
+  <Routes>
+    <Route path="/" element={<Index />} />
+    <Route path="/create" element={<Create />} />
+    <Route path="/about" element={<About />} />
+    <Route path="/story/:id" element={<Story />} />
+    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+    <Route path="*" element={<NotFound />} />
+  </Routes>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -20,14 +32,7 @@ const App = () => (
         <StoryProvider>
           <Toaster />
           <Sonner />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/create" element={<Create />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/story/:id" element={<Story />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AppRoutes />
         </StoryProvider>
       </BrowserRouter>
     </TooltipProvider>
