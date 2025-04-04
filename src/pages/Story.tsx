@@ -21,10 +21,10 @@ const Story: React.FC = () => {
       <Layout>
         <div className="min-h-[70vh] flex flex-col items-center justify-center">
           <p className="text-xl text-gray-700 mb-6">Story not found</p>
-          <Link to="/library">
+          <Link to="/">
             <Button variant="outline">
               <ChevronLeft className="mr-2 h-4 w-4" />
-              Back to Library
+              Back to Home
             </Button>
           </Link>
         </div>
@@ -40,16 +40,16 @@ const Story: React.FC = () => {
   // Make sure we have at least the first image
   const storyImages = story.images && story.images.length > 0 ? 
     story.images : 
-    ["https://images.unsplash.com/photo-1518709268805-4e9042af9f23"];
+    ["https://source.unsplash.com/featured/1024x768/?fantasy"];
 
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8 md:py-12">
         <div className="mb-6">
-          <Link to="/library">
+          <Link to="/">
             <Button variant="ghost" className="pl-0 text-tale-primary">
               <ChevronLeft className="mr-2 h-4 w-4" />
-              Back to Library
+              Back to Home
             </Button>
           </Link>
         </div>
@@ -69,7 +69,7 @@ const Story: React.FC = () => {
                 <Link to={`/story/${relatedStory.id}`} key={relatedStory.id}>
                   <div className="bg-white rounded-lg shadow overflow-hidden hover:shadow-md transition-shadow">
                     <img 
-                      src={relatedStory.images && relatedStory.images[0] ? relatedStory.images[0] : "https://images.unsplash.com/photo-1518709268805-4e9042af9f23"} 
+                      src={relatedStory.images && relatedStory.images[0] ? relatedStory.images[0] : "https://source.unsplash.com/featured/1024x768/?fantasy"} 
                       alt={relatedStory.title} 
                       className="w-full h-40 object-cover"
                     />

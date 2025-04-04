@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play, Pause, Volume2, VolumeX, Save, Share2, Heart, Loader2, RefreshCw, ImageIcon } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Save, Share2, Heart, Loader2, RefreshCw } from 'lucide-react';
 import { useStory } from '@/context/StoryContext';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -24,6 +25,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [audioUrl, setAudioUrl] = useState(initialAudioUrl || "");
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [audioLoaded, setAudioLoaded] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState("adam");
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -56,11 +58,13 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       audioRef.current.addEventListener('ended', handleAudioEnded);
       audioRef.current.addEventListener('error', handleAudioError);
       audioRef.current.addEventListener('canplaythrough', handleCanPlayThrough);
+      audioRef.current.addEventListener('loadeddata', handleAudioLoaded);
       
       audioRef.current.volume = volume;
       
       console.log("Audio element initialized with URL:", audioUrl);
       setAudioError(null);
+      setAudioLoaded(false);
       
       return () => {
         if (audioRef.current) {
@@ -68,6 +72,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
           audioRef.current.removeEventListener('ended', handleAudioEnded);
           audioRef.current.removeEventListener('error', handleAudioError);
           audioRef.current.removeEventListener('canplaythrough', handleCanPlayThrough);
+          audioRef.current.removeEventListener('loadeddata', handleAudioLoaded);
           audioRef.current.pause();
           setIsPlaying(false);
         }
@@ -75,14 +80,21 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     }
   }, [audioUrl]);
 
+  const handleAudioLoaded = () => {
+    console.log("Audio loaded successfully");
+    setAudioLoaded(true);
+  };
+
   const handleCanPlayThrough = () => {
     console.log("Audio can play through");
+    setAudioLoaded(true);
   };
 
   const handleAudioError = (e: Event) => {
     console.error("Audio error:", e);
     setAudioError("Failed to load audio. Please try again.");
     setIsPlaying(false);
+    setAudioLoaded(false);
     toast.error("Failed to play audio. Please try regenerating the audio.");
   };
 
@@ -146,19 +158,19 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     
     if (isPlaying) {
       audioRef.current.pause();
+      setIsPlaying(false);
     } else {
-      if (audioRef.current.readyState >= 2) {
-        audioRef.current.play().catch(error => {
-          console.error("Error playing audio:", error);
-          toast.error("Could not play audio. Please try again.");
-        });
-      } else {
+      if (!audioLoaded) {
         toast.error("Audio is not ready to play. Please wait.");
         return;
       }
+      
+      audioRef.current.play().catch(error => {
+        console.error("Error playing audio:", error);
+        toast.error("Could not play audio. Please try again.");
+      });
+      setIsPlaying(true);
     }
-    
-    setIsPlaying(!isPlaying);
   };
 
   const toggleMute = () => {
