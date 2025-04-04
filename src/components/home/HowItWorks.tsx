@@ -26,9 +26,6 @@ const HowItWorks: React.FC = () => {
                 Describe the story you want to create or choose from our template library to get started.
               </p>
             </div>
-            <div className="hidden md:block absolute top-1/2 right-0 w-full h-1 bg-gray-200 translate-x-1/2">
-              <div className="absolute top-1/2 right-0 -translate-y-1/2 w-3 h-3 rounded-full bg-tale-primary"></div>
-            </div>
           </div>
 
           {/* Step 2 */}
@@ -43,9 +40,6 @@ const HowItWorks: React.FC = () => {
                 Our AI generates a compelling narrative based on your prompt, complete with characters and plot.
               </p>
             </div>
-            <div className="hidden md:block absolute top-1/2 right-0 w-full h-1 bg-gray-200 translate-x-1/2">
-              <div className="absolute top-1/2 right-0 -translate-y-1/2 w-3 h-3 rounded-full bg-tale-primary"></div>
-            </div>
           </div>
 
           {/* Step 3 */}
@@ -59,9 +53,6 @@ const HowItWorks: React.FC = () => {
               <p className="text-gray-600">
                 Beautiful AI-generated images are created to complement key moments in your story.
               </p>
-            </div>
-            <div className="hidden md:block absolute top-1/2 right-0 w-full h-1 bg-gray-200 translate-x-1/2">
-              <div className="absolute top-1/2 right-0 -translate-y-1/2 w-3 h-3 rounded-full bg-tale-primary"></div>
             </div>
           </div>
 
