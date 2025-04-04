@@ -1,3 +1,4 @@
+
 // Import necessary modules and types
 // import { Configuration, OpenAIApi } from "openai";
 // import Replicate from "replicate";
@@ -199,63 +200,82 @@ export const generateImage = async (prompt: string, genre: string = 'fantasy', m
     let imageUrl;
     
     if (useCloudApi) {
-      // Use Replicate API for image generation
-      const response = await fetch('https://api.replicate.com/v1/predictions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Token ${apiKey}`
-        },
-        body: JSON.stringify({
-          version: modelEndpoint,
-          input: {
-            prompt: enhancedPrompt,
-            negative_prompt: "blurry, bad anatomy, bad hands, cropped, worst quality, low quality",
-            ...additionalParams
-          }
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Image generation API responded with status: ${response.status}`);
-      }
-      
-      const prediction = await response.json();
-      console.log('Prediction created:', prediction);
-      
-      // Poll for completion
-      const pollInterval = 1000; // 1 second
-      let completed = false;
-      let outputUrl;
-      
-      while (!completed) {
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-        
-        const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+      try {
+        // Use Replicate API for image generation
+        const response = await fetch('https://api.replicate.com/v1/predictions', {
+          method: 'POST',
           headers: {
-            'Authorization': `Token ${apiKey}`,
-            'Content-Type': 'application/json'
-          }
+            'Content-Type': 'application/json',
+            'Authorization': `Token ${apiKey}`
+          },
+          body: JSON.stringify({
+            version: modelEndpoint,
+            input: {
+              prompt: enhancedPrompt,
+              negative_prompt: "blurry, bad anatomy, bad hands, cropped, worst quality, low quality",
+              ...additionalParams
+            }
+          })
         });
         
-        if (!statusResponse.ok) {
-          throw new Error(`Failed to check prediction status: ${statusResponse.status}`);
+        if (!response.ok) {
+          console.error(`Image generation API responded with status: ${response.status}`);
+          throw new Error(`Image generation API responded with status: ${response.status}`);
         }
         
-        const status = await statusResponse.json();
+        const prediction = await response.json();
+        console.log('Prediction created:', prediction);
         
-        if (status.status === 'succeeded') {
-          completed = true;
-          outputUrl = Array.isArray(status.output) ? status.output[0] : status.output;
-        } else if (status.status === 'failed') {
-          throw new Error(`Image generation failed: ${status.error}`);
+        // Poll for completion
+        const pollInterval = 1000; // 1 second
+        let completed = false;
+        let outputUrl;
+        let pollAttempts = 0;
+        const maxPollAttempts = 30; // 30 seconds max waiting time
+        
+        while (!completed && pollAttempts < maxPollAttempts) {
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          pollAttempts++;
+          
+          const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+            headers: {
+              'Authorization': `Token ${apiKey}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (!statusResponse.ok) {
+            console.error(`Failed to check prediction status: ${statusResponse.status}`);
+            throw new Error(`Failed to check prediction status: ${statusResponse.status}`);
+          }
+          
+          const status = await statusResponse.json();
+          
+          if (status.status === 'succeeded') {
+            completed = true;
+            outputUrl = Array.isArray(status.output) ? status.output[0] : status.output;
+          } else if (status.status === 'failed') {
+            console.error(`Image generation failed: ${status.error}`);
+            throw new Error(`Image generation failed: ${status.error}`);
+          }
+          
+          console.log('Prediction status:', status.status);
         }
         
-        console.log('Prediction status:', status.status);
+        if (!completed) {
+          throw new Error('Image generation timed out');
+        }
+        
+        imageUrl = outputUrl;
+      } catch (apiError) {
+        console.error('API error, falling back to placeholders:', apiError);
+        // Fallback to placeholders if API call fails
+        throw apiError;
       }
-      
-      imageUrl = outputUrl;
-    } else {
+    }
+    
+    // If we don't have an image URL from the API (either API is disabled or failed), use placeholders
+    if (!imageUrl) {
       // Fallback to placeholder images for demo purposes
       const placeholders = [
         'https://source.unsplash.com/random/1024x768/?fantasy,magic',
@@ -265,14 +285,47 @@ export const generateImage = async (prompt: string, genre: string = 'fantasy', m
         'https://source.unsplash.com/random/1024x768/?historical,ancient',
         'https://source.unsplash.com/random/1024x768/?fairytale,enchanted'
       ];
-      imageUrl = placeholders[Math.floor(Math.random() * placeholders.length)];
+      
+      // Choose a placeholder based on the genre if possible
+      let placeholderIndex = 0;
+      if (genre === 'fantasy') placeholderIndex = 0;
+      else if (genre === 'adventure') placeholderIndex = 1;
+      else if (genre === 'mystery' || genre === 'horror') placeholderIndex = 2;
+      else if (genre === 'sci-fi') placeholderIndex = 3;
+      else if (genre === 'historical') placeholderIndex = 4;
+      else if (genre === 'fairy-tale') placeholderIndex = 5;
+      else placeholderIndex = Math.floor(Math.random() * placeholders.length);
+      
+      imageUrl = placeholders[placeholderIndex];
     }
     
     console.log('Image generated successfully:', imageUrl);
     return imageUrl;
   } catch (error) {
     console.error('Error generating image:', error);
-    throw new Error(`Failed to generate image: ${(error as Error).message}`);
+    
+    // Always fallback to placeholders when any error occurs
+    const placeholders = [
+      'https://source.unsplash.com/random/1024x768/?fantasy,magic',
+      'https://source.unsplash.com/random/1024x768/?adventure,landscape',
+      'https://source.unsplash.com/random/1024x768/?mystery,night',
+      'https://source.unsplash.com/random/1024x768/?scifi,future',
+      'https://source.unsplash.com/random/1024x768/?historical,ancient',
+      'https://source.unsplash.com/random/1024x768/?fairytale,enchanted'
+    ];
+    
+    let placeholderIndex = 0;
+    if (genre === 'fantasy') placeholderIndex = 0;
+    else if (genre === 'adventure') placeholderIndex = 1;
+    else if (genre === 'mystery' || genre === 'horror') placeholderIndex = 2;
+    else if (genre === 'sci-fi') placeholderIndex = 3;
+    else if (genre === 'historical') placeholderIndex = 4;
+    else if (genre === 'fairy-tale') placeholderIndex = 5;
+    else placeholderIndex = Math.floor(Math.random() * placeholders.length);
+    
+    const fallbackImageUrl = placeholders[placeholderIndex];
+    console.log('Using fallback image:', fallbackImageUrl);
+    return fallbackImageUrl;
   }
 };
 

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -143,9 +144,19 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       // Only keep unique prompts up to the desired count
       const uniquePrompts = [...new Set(imagePrompts)].slice(0, imageCount);
       
-      // Generate images in parallel
-      const imagePromises = uniquePrompts.map(imagePrompt => generateImage(imagePrompt, genre, imageModel));
-      const images = await Promise.all(imagePromises);
+      // Generate images, handling potential errors for each image separately
+      const images = [];
+      
+      for (const imagePrompt of uniquePrompts) {
+        try {
+          const image = await generateImage(imagePrompt, genre, imageModel);
+          images.push(image);
+        } catch (error) {
+          console.error("Error generating individual image:", error);
+          // If an individual image generation fails, use a placeholder
+          images.push(`https://source.unsplash.com/random/1024x768/?${genre.replace('-', ',')}`);
+        }
+      }
       
       console.log("Images generated:", images.length);
       

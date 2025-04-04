@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Image, ImageIcon, Sparkles } from "lucide-react";
+import { Image, ImageIcon, Sparkles, AlertCircle } from "lucide-react";
 
 export interface ImageAIModel {
   id: string;
@@ -53,7 +53,7 @@ const imageAIModels: ImageAIModel[] = [
     id: 'default',
     name: 'Default Style',
     provider: 'TaleCloud',
-    description: 'Our standard image generation style',
+    description: 'Our standard image generation style (uses Unsplash images if API fails)',
     requiresApiKey: false,
     apiKeyName: ''
   }
@@ -82,6 +82,7 @@ const ImageAIModelSelector: React.FC<ImageAIModelSelectorProps> = ({ selectedMod
         const savedKey = localStorage.getItem(model.apiKeyName);
         if (!savedKey) {
           setShowApiKeyInput(true);
+          toast.info(`Please provide a Replicate API key for ${model.name}`);
         } else {
           setShowApiKeyInput(false);
         }
@@ -113,12 +114,30 @@ const ImageAIModelSelector: React.FC<ImageAIModelSelectorProps> = ({ selectedMod
     setApiKey("");
   };
 
+  const hasValidApiKey = selectedModelData?.requiresApiKey
+    ? !!localStorage.getItem(selectedModelData.apiKeyName)
+    : true;
+
   return (
     <div className="bg-white rounded-lg shadow p-5 mb-6">
       <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
         <ImageIcon className="h-5 w-5 text-tale-primary" />
         Select Image Generator
       </h3>
+
+      {!hasValidApiKey && selectedModelData?.requiresApiKey && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
+          <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
+          <div className="text-sm text-amber-700">
+            <p className="font-medium">API Key Required</p>
+            <p>You need to add a Replicate API key to use this model. Get your key from 
+              <a href="https://replicate.com/account/api-tokens" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline ml-1">
+                replicate.com
+              </a>.
+            </p>
+          </div>
+        </div>
+      )}
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
         {imageAIModels.map((model) => (
@@ -177,9 +196,10 @@ const ImageAIModelSelector: React.FC<ImageAIModelSelectorProps> = ({ selectedMod
             />
             <Button onClick={saveApiKey} type="button">Save</Button>
           </div>
-          <p className="mt-2 text-xs text-gray-500">
-            Your API key will be stored securely in your browser's local storage.
-          </p>
+          <div className="mt-2 text-xs text-gray-500">
+            <p>Your API key will be stored securely in your browser's local storage.</p>
+            <p className="mt-1">To get a Replicate API key, <a href="https://replicate.com/account/api-tokens" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">visit replicate.com</a></p>
+          </div>
         </div>
       )}
     </div>
