@@ -104,6 +104,14 @@ const ImageAIModelSelector: React.FC<ImageAIModelSelectorProps> = ({ selectedMod
     setShowApiKeyInput(false);
     setApiKey("");
   };
+  
+  const handleManageKey = () => {
+    if (!selectedModelData?.requiresApiKey) return;
+    
+    // Toggle the API key input
+    setShowApiKeyInput(!showApiKeyInput);
+    setApiKey("");
+  };
 
   return (
     <div className="bg-white rounded-lg shadow p-5 mb-6">
@@ -133,6 +141,22 @@ const ImageAIModelSelector: React.FC<ImageAIModelSelectorProps> = ({ selectedMod
               </div>
             </div>
             <p className="text-xs text-gray-600 mt-2">{model.description}</p>
+            {model.requiresApiKey && (
+              <div className="mt-2 flex justify-end">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-xs py-1 h-auto"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedModelData(model);
+                    handleManageKey();
+                  }}
+                >
+                  {localStorage.getItem(model.apiKeyName) ? "Update API Key" : "Add API Key"}
+                </Button>
+              </div>
+            )}
           </div>
         ))}
       </div>
