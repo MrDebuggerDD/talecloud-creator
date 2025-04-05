@@ -241,19 +241,22 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     try {
       toast.info("Regenerating image...");
       
-      let imagePrompt = storyObj.prompt;
+      let imagePrompt = storyObj.prompt || "";
+      const imageModel = storyObj.imageModel || 'replicate-sd';
       
       if (content.length > 0) {
-        const relatedParagraphIndex = index * 3;
+        const relatedParagraphIndex = Math.min(index * 3, content.length - 1);
         
         if (relatedParagraphIndex < content.length) {
           imagePrompt = content[relatedParagraphIndex].substring(0, 200);
         }
       }
       
-      const newImage = await generateImage(imagePrompt, storyObj.genre);
+      console.log("Regenerating image with model:", imageModel, "prompt:", imagePrompt);
+      const newImage = await generateImage(imagePrompt, storyObj.genre, imageModel);
       
       if (newImage) {
+        console.log("New image generated:", newImage);
         const updatedImages = [...storyObj.images];
         updatedImages[index] = newImage;
         
@@ -265,6 +268,8 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
         saveStory(updatedStory);
         
         toast.success("Image regenerated successfully!");
+      } else {
+        toast.error("Failed to generate a new image");
       }
     } catch (error) {
       console.error("Error regenerating image:", error);
@@ -272,6 +277,10 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     } finally {
       setIsGeneratingImage(false);
     }
+  };
+
+  const isValidImageUrl = (url: string): boolean => {
+    return url && url.trim() !== "" && url.startsWith("http");
   };
 
   return (
@@ -385,13 +394,20 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
         <div className="story-text prose max-w-none">
           {content.map((paragraph, index) => (
             <React.Fragment key={index}>
-              {index > 0 && index % 3 === 0 && images[Math.floor(index / 3) - 1] && (
+              {index > 0 && index % 3 === 0 && images && images[Math.floor(index / 3) - 1] && (
                 <div className="my-8 relative">
                   <img 
-                    src={images[Math.floor(index / 3) - 1]} 
+                    src={isValidImageUrl(images[Math.floor(index / 3) - 1]) ? 
+                      images[Math.floor(index / 3) - 1] : 
+                      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23"} 
                     alt={`Illustration for "${title}" - scene ${Math.floor(index / 3)}`}
                     className="w-full h-auto rounded-lg shadow-md" 
                     loading="lazy"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23";
+                      console.error("Image failed to load, replaced with placeholder");
+                    }}
                   />
                   <div className="absolute top-2 right-2">
                     <Button
@@ -420,13 +436,19 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
             </React.Fragment>
           ))}
           
-          {content.length > 3 && images[Math.floor(content.length / 3)] && (
+          {content.length > 3 && images && images[Math.floor(content.length / 3)] && (
             <div className="my-8 relative">
               <img 
-                src={images[Math.floor(content.length / 3)]} 
+                src={isValidImageUrl(images[Math.floor(content.length / 3)]) ? 
+                  images[Math.floor(content.length / 3)] : 
+                  "https://images.unsplash.com/photo-1518709268805-4e9042af9f23"} 
                 alt={`Final illustration for "${title}"`}
                 className="w-full h-auto rounded-lg shadow-md" 
                 loading="lazy"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23";
+                }}
               />
               <div className="absolute top-2 right-2">
                 <Button

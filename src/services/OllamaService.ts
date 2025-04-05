@@ -397,7 +397,7 @@ export const generateImage = async (prompt: string, genre: string, imageModel: s
 const generateImageWithReplicate = async (prompt: string, genre: string): Promise<string> => {
   try {
     // Get Stable Diffusion API key from localStorage
-    const apiKey = localStorage.getItem('replicate_api_key') || localStorage.getItem('stable_diffusion_api_key');
+    const apiKey = localStorage.getItem('replicate_api_key');
     
     if (!apiKey) {
       console.warn("No Replicate API key found. Using placeholder image instead.");
@@ -455,6 +455,7 @@ const generateImageWithReplicate = async (prompt: string, genre: string): Promis
     
     // Poll for the result (Replicate runs asynchronously)
     let imageUrl = await pollForResult(data.urls.get, apiKey);
+    console.log("Generated image URL:", imageUrl);
     return imageUrl || getPlaceholderImage(genre);
     
   } catch (error) {
@@ -681,12 +682,15 @@ const pollForResult = async (resultUrl: string, apiKey: string): Promise<string>
       }
       
       const data = await response.json();
+      console.log("Poll attempt", attempts, "status:", data.status);
       
       if (data.status === "succeeded") {
         // Return the first generated image
+        console.log("Image generation succeeded, output:", data.output);
         return data.output[0];
       } else if (data.status === "failed") {
-        throw new Error("Image generation failed");
+        console.error("Image generation failed, error:", data.error);
+        throw new Error(`Image generation failed: ${data.error || "Unknown error"}`);
       }
       
       // Wait before trying again
@@ -762,34 +766,4 @@ export const generateAudio = async (text: string, voice: string = "onyx"): Promi
     
     // The response is the audio file itself
     const blob = await response.blob();
-    const audioUrl = URL.createObjectURL(blob);
-    
-    console.log("Audio generation successful, created blob URL:", audioUrl);
-    return audioUrl;
-  } catch (error) {
-    console.error("Error generating audio:", error);
-    throw error;
-  }
-}
-
-const getVoiceId = (voice: string): string => {
-  const voiceMap: Record<string, string> = {
-    onyx: "jBpfuIE2acCO8z3wKNLl",
-    alloy: "pNInz6obpgDQGcFmaJgB",
-    echo: "MF3mGyEYCl7XYWbV9V6O",
-    fable: "XB0fDUnXU5powFXDhCwa",
-    nova: "EXAVITQu4vr4xnSDxMaL",
-    shimmer: "XrExE9yKIg1WjnnlVkGX",
-    rachel: "21m00Tcm4TlvDq8ikWAM",
-    domi: "AZnzlk1XvdvUeBnXmlld",
-    bella: "EXAVITQu4vr4xnSDxMaL",
-    antoni: "ErXwobaYiN019PkySvjV",
-    elli: "MF3mGyEYCl7XYWbV9V6O",
-    josh: "TxGEqnHWrfWFTfGW9XjX",
-    arnold: "VR6AewLTigWG4xSOukaG",
-    adam: "pNInz6obpgDQGcFmaJgB",
-    sam: "yoZ06aMxZJJ28mfd3POQ",
-  };
-  
-  return voiceMap[voice] || "pNInz6obpgDQGcFmaJgB";
-}
+    const audioUrl = URL.create

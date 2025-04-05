@@ -39,8 +39,10 @@ const Story: React.FC = () => {
 
   // Make sure we have at least the first image
   const storyImages = story.images && story.images.length > 0 ? 
-    story.images : 
+    story.images.filter(img => img && img.trim() !== "") : 
     ["https://images.unsplash.com/photo-1518709268805-4e9042af9f23"];
+
+  console.log("Story images:", storyImages);
 
   return (
     <Layout>

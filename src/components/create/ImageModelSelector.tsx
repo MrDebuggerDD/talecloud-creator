@@ -34,7 +34,7 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
     return imageProviders.find(provider => provider.id === modelId);
   };
 
-  // Check if an API key exists for a provider
+  // Check if an API key exists for the initially selected provider
   useEffect(() => {
     const providerDetails = getProviderDetails(selectedModel);
     if (providerDetails?.requiresKey) {
@@ -44,7 +44,7 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
         setShowApiKeyDialog(true);
       }
     }
-  }, [selectedModel]);
+  }, []);
 
   const handleModelSelect = (modelId: string) => {
     const providerDetails = getProviderDetails(modelId);
@@ -82,6 +82,16 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
   const getProviderIcon = (providerId: string) => {
     return <ImageIcon className="h-4 w-4 mr-2" />;
   };
+  
+  // Debug stored keys
+  useEffect(() => {
+    imageProviders.forEach(provider => {
+      if (provider.requiresKey) {
+        const key = localStorage.getItem(provider.keyName);
+        console.log(`${provider.name} key in localStorage:`, key ? "Present" : "Not present");
+      }
+    });
+  }, []);
 
   return (
     <div className="mb-6">
