@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -31,6 +30,13 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imagesLoading, setImagesLoading] = useState<Record<number, boolean>>({});
   const [imagesError, setImagesError] = useState<Record<number, boolean>>({});
+  const [fallbackImages, setFallbackImages] = useState<string[]>([
+    "/placeholder.svg",
+    "/placeholder.svg",
+    "/placeholder.svg",
+    "/placeholder.svg",
+    "/placeholder.svg"
+  ]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { id } = useParams<{ id: string }>();
@@ -40,7 +46,6 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     ? currentStory 
     : savedStories.find(s => s.id === id);
 
-  // Check if images are valid URLs
   useEffect(() => {
     const checkImages = () => {
       if (images && images.length > 0) {
@@ -79,7 +84,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
         audioRef.current.pause();
       }
       
-      const audio = new Audio(audioUrl);
+      const audio = new Audio();
       audioRef.current = audio;
       
       const handleCanPlayThrough = () => {
@@ -94,10 +99,10 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       
       const handleAudioLoadError = (e: Event) => {
         console.error("Audio error:", e);
-        setAudioError("Failed to load audio. Please try again.");
+        setAudioError("Failed to load audio. Please try regenerating.");
         setIsPlaying(false);
         setAudioLoaded(false);
-        toast.error("Failed to play audio. Please try regenerating the audio.");
+        toast.error("Failed to play audio. Please try regenerating.");
       };
       
       audio.addEventListener('timeupdate', updateProgress);
@@ -111,11 +116,19 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       console.log("Audio element initialized with URL:", audioUrl);
       setAudioError(null);
       
-      // Attempting preload
-      audio.preload = "auto";
+      const attemptPreload = async () => {
+        try {
+          const response = await fetch(audioUrl);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          console.log("Audio preloaded via fetch");
+        } catch (err) {
+          console.error("Error preloading audio:", err);
+        }
+      };
       
-      // Force a load attempt
-      audio.load();
+      attemptPreload();
       
       return () => {
         audio.removeEventListener('timeupdate', updateProgress);
@@ -170,6 +183,10 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
           };
           saveStory(updatedStory);
           toast.success("Audio narration ready!");
+          
+          const preloadAudio = new Audio();
+          preloadAudio.src = newAudioUrl;
+          preloadAudio.load();
         }
       } else {
         setAudioError("Failed to generate audio narration.");
@@ -193,15 +210,26 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       setIsPlaying(false);
     } else {
       if (!audioLoaded) {
-        toast.error("Audio is not ready to play. Please wait or try regenerating.");
-        return;
+        if (audioRef.current.readyState >= 2) {
+          audioRef.current.play().catch(error => {
+            console.error("Error playing audio:", error);
+            toast.error("Could not play audio. Please try regenerating.");
+            setAudioError("Failed to play audio. Please regenerate.");
+          });
+          setIsPlaying(true);
+        } else {
+          toast.error("Audio is not ready to play. Please regenerate the audio.");
+          setAudioError("Audio is not ready. Please regenerate.");
+          return;
+        }
+      } else {
+        audioRef.current.play().catch(error => {
+          console.error("Error playing audio:", error);
+          toast.error("Could not play audio. Please try regenerating.");
+          setAudioError("Failed to play audio. Please regenerate.");
+        });
+        setIsPlaying(true);
       }
-      
-      audioRef.current.play().catch(error => {
-        console.error("Error playing audio:", error);
-        toast.error("Could not play audio. Please try again.");
-      });
-      setIsPlaying(true);
     }
   };
 
@@ -324,10 +352,10 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     }
   };
 
-  // Helper function to render image with loading/error states
   const renderImage = (imageUrl: string, index: number, alt: string) => {
     const isLoading = imagesLoading[index];
     const hasError = imagesError[index];
+    const fallbackImage = fallbackImages[index % fallbackImages.length];
     
     if (isLoading || isGeneratingImage && currentImageIndex === index) {
       return (
@@ -367,6 +395,10 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
           alt={alt}
           className="w-full h-auto rounded-lg shadow-md" 
           loading="lazy"
+          onError={(e) => {
+            e.currentTarget.src = fallbackImage;
+            setImagesError(prev => ({ ...prev, [index]: true }));
+          }}
         />
         <div className="absolute top-2 right-2">
           <Button
@@ -424,7 +456,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
             {isGeneratingAudio ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : audioError ? (
-              <Play className="h-5 w-5 text-red-500" />
+              <RefreshCw className="h-5 w-5 text-red-500" />
             ) : isPlaying ? (
               <Pause className="h-5 w-5" />
             ) : (
@@ -480,6 +512,13 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
           <div className="text-amber-500 mb-4 text-sm">
             <Loader2 className="h-4 w-4 inline-block animate-spin mr-1" />
             Loading audio... Please wait before playing.
+            <Button 
+              variant="link" 
+              className="text-sm text-amber-600 underline ml-2"
+              onClick={() => handleGenerateAudio()}
+            >
+              Regenerate
+            </Button>
           </div>
         )}
         

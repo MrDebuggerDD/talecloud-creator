@@ -48,16 +48,16 @@ const Story: React.FC = () => {
   // Make sure we have at least placeholder images if needed
   const ensureImages = () => {
     if (!story.images || story.images.length === 0) {
-      // Return placeholder images based on genre
-      return [`https://source.unsplash.com/featured/1024x768/?${story.genre.replace('-', ',')}`];
+      // Return local placeholder images instead of using Unsplash (which has issues)
+      return ["/placeholder.svg", "/placeholder.svg", "/placeholder.svg"];
     }
     
     // Filter out invalid image URLs (empty strings, null, undefined)
     const validImages = story.images.filter(img => img && img.trim() !== "");
     
     if (validImages.length === 0) {
-      // If all images were invalid, return placeholder
-      return [`https://source.unsplash.com/featured/1024x768/?${story.genre.replace('-', ',')}`];
+      // If all images were invalid, return placeholders
+      return ["/placeholder.svg", "/placeholder.svg", "/placeholder.svg"];
     }
     
     return validImages;
@@ -69,7 +69,7 @@ const Story: React.FC = () => {
   const renderRelatedStoryCard = (relatedStory: typeof story) => {
     const cardImage = relatedStory.images && relatedStory.images[0] 
       ? relatedStory.images[0] 
-      : `https://source.unsplash.com/featured/1024x768/?${relatedStory.genre.replace('-', ',')}`;
+      : `/placeholder.svg`;
       
     return (
       <Link to={`/story/${relatedStory.id}`} key={relatedStory.id}>
@@ -80,8 +80,8 @@ const Story: React.FC = () => {
               alt={relatedStory.title} 
               className="w-full h-40 object-cover"
               onError={(e) => {
-                // On error, replace with genre-based placeholder
-                e.currentTarget.src = `https://source.unsplash.com/featured/1024x768/?${relatedStory.genre.replace('-', ',')}`;
+                // On error, replace with local placeholder
+                e.currentTarget.src = "/placeholder.svg";
               }}
             />
           </div>
