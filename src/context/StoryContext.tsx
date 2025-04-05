@@ -27,12 +27,19 @@ interface StoryContextType {
 
 const StoryContext = createContext<StoryContextType | undefined>(undefined);
 
+// Separate hook for getting the context to avoid circular dependencies
 export const useStory = () => {
   const context = useContext(StoryContext);
   if (!context) {
     throw new Error('useStory must be used within a StoryProvider');
   }
   return context;
+};
+
+// Generate a fallback image URL based on genre
+const getFallbackImageUrl = (genre: string) => {
+  const formattedGenre = genre.replace(/-/g, ',');
+  return `https://source.unsplash.com/featured/1024x768/?${formattedGenre}`;
 };
 
 export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -67,6 +74,11 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [savedStories]);
 
+  // Safely imports services without circular dependencies
+  const importServices = async () => {
+    return await import('../services/OllamaService');
+  };
+
   const generateNewStory = async (
     title: string, 
     prompt: string, 
@@ -86,7 +98,7 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       toast.info('Generating your story...');
       
       // Import the service dynamically to avoid circular dependencies
-      const { generateStory, generateImage } = await import('../services/OllamaService');
+      const { generateStory, generateImage } = await importServices();
       
       console.log("Starting story generation with model:", model);
       console.log("Image generation with model:", imageModel);
@@ -150,15 +162,26 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       for (const imagePrompt of uniquePrompts) {
         try {
           const image = await generateImage(imagePrompt, genre, imageModel);
-          images.push(image);
+          if (image && image.trim() !== "") {
+            images.push(image);
+          } else {
+            // Use fallback if image URL is empty
+            console.warn("Empty image URL returned, using fallback");
+            images.push(getFallbackImageUrl(genre));
+          }
         } catch (error) {
           console.error("Error generating individual image:", error);
-          // If an individual image generation fails, use a placeholder
-          images.push(`https://source.unsplash.com/random/1024x768/?${genre.replace('-', ',')}`);
+          // If an individual image generation fails, use a genre-based placeholder
+          images.push(getFallbackImageUrl(genre));
         }
       }
       
       console.log("Images generated:", images.length);
+      
+      // Verify we have at least one image, add a fallback if not
+      if (images.length === 0) {
+        images.push(getFallbackImageUrl(genre));
+      }
       
       // Use provided title or generate one from the content
       const storyTitle = title || `Story about ${prompt.slice(0, 20)}...`;
