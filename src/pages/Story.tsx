@@ -5,7 +5,7 @@ import Layout from '@/components/layout/Layout';
 import StoryDisplay from '@/components/story/StoryDisplay';
 import { Button } from '@/components/ui/button';
 import { useStory } from '@/context/StoryContext';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, BookOpen, ImageIcon, Cpu } from 'lucide-react';
 
 const Story: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -52,6 +52,18 @@ const Story: React.FC = () => {
               Back to Library
             </Button>
           </Link>
+        </div>
+        
+        <div className="mb-6 text-sm text-gray-500 flex flex-wrap gap-4">
+          <div className="flex items-center">
+            <Cpu className="h-4 w-4 mr-1" />
+            <span>Story Model: {story.model || "Default"}</span>
+          </div>
+          
+          <div className="flex items-center">
+            <ImageIcon className="h-4 w-4 mr-1" />
+            <span>Image Model: {story.imageModel || "Default"}</span>
+          </div>
         </div>
         
         <StoryDisplay 

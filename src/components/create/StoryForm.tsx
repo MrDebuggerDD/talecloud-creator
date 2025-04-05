@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +7,7 @@ import { PenLine, Wand2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStory } from '@/context/StoryContext';
 import AIModelSelector from './AIModelSelector';
+import ImageModelSelector from './ImageModelSelector';
 
 const StoryForm: React.FC = () => {
   const [prompt, setPrompt] = useState('');
@@ -16,6 +16,7 @@ const StoryForm: React.FC = () => {
   const [length, setLength] = useState('medium');
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [aiModel, setAiModel] = useState('ollama-mistral');
+  const [imageModel, setImageModel] = useState('replicate-sd');
   
   const { generateNewStory, isGenerating } = useStory();
 
@@ -46,11 +47,12 @@ const StoryForm: React.FC = () => {
       prompt,
       genre, 
       length,
-      model: aiModel
+      model: aiModel,
+      imageModel: imageModel
     });
     
     try {
-      await generateNewStory(title, prompt, genre, length, aiModel);
+      await generateNewStory(title, prompt, genre, length, aiModel, imageModel);
     } catch (error) {
       console.error("Error in form submission:", error);
     }
@@ -64,6 +66,8 @@ const StoryForm: React.FC = () => {
     <div className="magical-border p-6 md:p-8 bg-white rounded-xl shadow-lg">
       <form onSubmit={handleSubmit}>
         <AIModelSelector selectedModel={aiModel} onSelectModel={setAiModel} />
+        
+        <ImageModelSelector selectedModel={imageModel} onSelectModel={setImageModel} />
         
         <div className="mb-6">
           <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">

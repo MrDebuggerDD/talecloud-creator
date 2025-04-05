@@ -366,83 +366,302 @@ const generateFallbackStory = (prompt: string): string => {
   In the end, returning home with stories to tell and wisdom to share, our hero found that the greatest adventures often lead us back to ourselves, forever changed by the paths we've walked.`;
 };
 
-export const generateImage = async (prompt: string, genre: string): Promise<string> => {
+export const generateImage = async (prompt: string, genre: string, imageModel: string = 'replicate-sd'): Promise<string> => {
   try {
     console.log("Image generation requested for prompt:", prompt);
+    console.log("Using image model:", imageModel);
     
-    // Get Stable Diffusion API key from localStorage
-    const apiKey = localStorage.getItem('stable_diffusion_api_key') || 'r8_3ZnMuSsi4jfNnUpjHHfSp31GrI4btcx1Sfbn3';
-    
-    if (!apiKey) {
-      console.warn("No Stable Diffusion API key found. Using placeholder image instead.");
-      return getPlaceholderImage(genre);
-    }
-    
-    try {
-      // Create a more detailed and specific prompt based on the story prompt and genre
-      // This improves image relevance by adding more context and style guidance
-      const styleMap: Record<string, string> = {
-        fantasy: "fantasy art style, magical, mystical, detailed fantasy environment",
-        "sci-fi": "science fiction style, futuristic, high-tech, cinematic lighting",
-        mystery: "dark atmospheric style, moody lighting, noir aesthetic, mysterious",
-        romance: "romantic style, soft lighting, warm colors, emotional scene",
-        horror: "horror style, dark, eerie, unsettling, atmospheric horror scene",
-        adventure: "adventure style, dynamic, epic landscape, dramatic lighting",
-        historical: "historical style, period accurate details, vintage aesthetic",
-        "fairy-tale": "fairy tale style, enchanted, whimsical, storybook illustration"
-      };
-      
-      const stylePrompt = styleMap[genre] || styleMap.fantasy;
-      const enhancedPrompt = `${stylePrompt}, ${prompt.substring(0, 200)}`;
-      
-      console.log("Calling Stable Diffusion API via Replicate with enhanced prompt:", enhancedPrompt);
-      
-      // Call Stable Diffusion API via Replicate with improved parameters
-      const response = await fetch("https://api.replicate.com/v1/predictions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Token ${apiKey}`,
-        },
-        body: JSON.stringify({
-          version: "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b", // SD v2.1
-          input: {
-            prompt: enhancedPrompt,
-            negative_prompt: "blurry, bad anatomy, extra limbs, deformed, disfigured, text, watermark, signature, low quality, pixelated",
-            width: 768,
-            height: 512,
-            num_outputs: 1,
-            guidance_scale: 7.5,  // Increased for better prompt adherence
-            num_inference_steps: 30, // More steps for better quality
-            seed: Math.floor(Math.random() * 1000000) // Random seed for variety
-          }
-        }),
-      });
-      
-      if (!response.ok) {
-        console.error("Replicate API error status:", response.status);
-        const errorText = await response.text();
-        console.error("Replicate API error:", errorText);
-        throw new Error(`API error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log("Replicate prediction started:", data.id);
-      
-      // Poll for the result (Replicate runs asynchronously)
-      let imageUrl = await pollForResult(data.urls.get, apiKey);
-      return imageUrl || getPlaceholderImage(genre);
-      
-    } catch (error) {
-      console.error("Error with image generation API:", error);
-      // Fallback to placeholder image if API fails
-      return getPlaceholderImage(genre);
+    // Handle different image generation services based on the selected model
+    if (imageModel === 'replicate-sd') {
+      return await generateImageWithReplicate(prompt, genre);
+    } else if (imageModel === 'openai-dalle') {
+      return await generateImageWithOpenAI(prompt, genre);
+    } else if (imageModel === 'stability-ai') {
+      return await generateImageWithStabilityAI(prompt, genre);
+    } else if (imageModel === 'midjourney-api') {
+      return await generateImageWithMidjourney(prompt, genre);
+    } else if (imageModel === 'local-diffusion') {
+      return await generateImageWithLocalDiffusion(prompt, genre);
+    } else {
+      // Default to Replicate if the model is not recognized
+      console.warn("Unknown image model, defaulting to Replicate Stable Diffusion");
+      return await generateImageWithReplicate(prompt, genre);
     }
   } catch (error) {
     console.error("Error generating image:", error);
-    throw new Error("Failed to generate image. Using placeholder image instead.");
+    return getPlaceholderImage(genre);
   }
 }
+
+// Generate image with Replicate API (Stable Diffusion)
+const generateImageWithReplicate = async (prompt: string, genre: string): Promise<string> => {
+  try {
+    // Get Stable Diffusion API key from localStorage
+    const apiKey = localStorage.getItem('replicate_api_key') || localStorage.getItem('stable_diffusion_api_key');
+    
+    if (!apiKey) {
+      console.warn("No Replicate API key found. Using placeholder image instead.");
+      return getPlaceholderImage(genre);
+    }
+    
+    // Create a more detailed and specific prompt based on the story prompt and genre
+    const styleMap: Record<string, string> = {
+      fantasy: "fantasy art style, magical, mystical, detailed fantasy environment",
+      "sci-fi": "science fiction style, futuristic, high-tech, cinematic lighting",
+      mystery: "dark atmospheric style, moody lighting, noir aesthetic, mysterious",
+      romance: "romantic style, soft lighting, warm colors, emotional scene",
+      horror: "horror style, dark, eerie, unsettling, atmospheric horror scene",
+      adventure: "adventure style, dynamic, epic landscape, dramatic lighting",
+      historical: "historical style, period accurate details, vintage aesthetic",
+      "fairy-tale": "fairy tale style, enchanted, whimsical, storybook illustration"
+    };
+    
+    const stylePrompt = styleMap[genre] || styleMap.fantasy;
+    const enhancedPrompt = `${stylePrompt}, ${prompt.substring(0, 200)}`;
+    
+    console.log("Calling Replicate API with enhanced prompt:", enhancedPrompt);
+    
+    // Call Stable Diffusion API via Replicate with improved parameters
+    const response = await fetch("https://api.replicate.com/v1/predictions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Token ${apiKey}`,
+      },
+      body: JSON.stringify({
+        version: "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b", // SD v2.1
+        input: {
+          prompt: enhancedPrompt,
+          negative_prompt: "blurry, bad anatomy, extra limbs, deformed, disfigured, text, watermark, signature, low quality, pixelated",
+          width: 768,
+          height: 512,
+          num_outputs: 1,
+          guidance_scale: 7.5,  // Increased for better prompt adherence
+          num_inference_steps: 30, // More steps for better quality
+          seed: Math.floor(Math.random() * 1000000) // Random seed for variety
+        }
+      }),
+    });
+    
+    if (!response.ok) {
+      console.error("Replicate API error status:", response.status);
+      const errorText = await response.text();
+      console.error("Replicate API error:", errorText);
+      throw new Error(`API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log("Replicate prediction started:", data.id);
+    
+    // Poll for the result (Replicate runs asynchronously)
+    let imageUrl = await pollForResult(data.urls.get, apiKey);
+    return imageUrl || getPlaceholderImage(genre);
+    
+  } catch (error) {
+    console.error("Error with Replicate generation:", error);
+    return getPlaceholderImage(genre);
+  }
+};
+
+// Generate image with OpenAI DALL-E
+const generateImageWithOpenAI = async (prompt: string, genre: string): Promise<string> => {
+  try {
+    const apiKey = localStorage.getItem('openai_api_key');
+    
+    if (!apiKey) {
+      console.warn("No OpenAI API key found. Using placeholder image instead.");
+      return getPlaceholderImage(genre);
+    }
+    
+    // Create a more detailed prompt based on genre
+    const styleMap: Record<string, string> = {
+      fantasy: "fantasy style with magical elements",
+      "sci-fi": "futuristic sci-fi scene",
+      mystery: "mysterious noir scene",
+      romance: "romantic scene with soft lighting",
+      horror: "unsettling horror scene",
+      adventure: "epic adventure scene",
+      historical: "detailed historical scene",
+      "fairy-tale": "whimsical fairy tale illustration"
+    };
+    
+    const stylePrompt = styleMap[genre] || '';
+    const enhancedPrompt = `${prompt}. ${stylePrompt}`;
+    
+    console.log("Calling DALL-E API with prompt:", enhancedPrompt);
+    
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "dall-e-3",
+        prompt: enhancedPrompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "standard",
+        response_format: "url"
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data.data[0].url;
+    
+  } catch (error) {
+    console.error("Error with OpenAI image generation:", error);
+    return getPlaceholderImage(genre);
+  }
+};
+
+// Generate image with Stability AI
+const generateImageWithStabilityAI = async (prompt: string, genre: string): Promise<string> => {
+  try {
+    const apiKey = localStorage.getItem('stability_api_key');
+    
+    if (!apiKey) {
+      console.warn("No Stability AI API key found. Using placeholder image instead.");
+      return getPlaceholderImage(genre);
+    }
+    
+    // Create enhanced prompt similar to other providers
+    const styleMap: Record<string, string> = {
+      fantasy: "fantasy art style, magical, mystical",
+      "sci-fi": "science fiction style, futuristic, high-tech",
+      mystery: "dark atmospheric style, moody lighting, noir aesthetic",
+      romance: "romantic style, soft lighting, warm colors",
+      horror: "horror style, dark, eerie, unsettling",
+      adventure: "adventure style, dynamic, epic landscape",
+      historical: "historical style, period accurate details",
+      "fairy-tale": "fairy tale style, enchanted, whimsical"
+    };
+    
+    const stylePrompt = styleMap[genre] || '';
+    const enhancedPrompt = `${prompt}. ${stylePrompt}`;
+    
+    console.log("Calling Stability AI API with prompt:", enhancedPrompt);
+    
+    const response = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        text_prompts: [
+          {
+            text: enhancedPrompt,
+            weight: 1
+          },
+          {
+            text: "blurry, bad anatomy, extra limbs, deformed, disfigured, text, watermark, signature, low quality",
+            weight: -1
+          }
+        ],
+        cfg_scale: 7,
+        height: 1024,
+        width: 1024,
+        samples: 1,
+        steps: 30
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Stability AI API error: ${errorText}`);
+    }
+    
+    const responseJSON = await response.json();
+    
+    // Base64 decode and create URL
+    const base64Image = responseJSON.artifacts[0].base64;
+    const blob = await fetch(`data:image/png;base64,${base64Image}`).then(res => res.blob());
+    return URL.createObjectURL(blob);
+    
+  } catch (error) {
+    console.error("Error with Stability AI image generation:", error);
+    return getPlaceholderImage(genre);
+  }
+};
+
+// Generate image with Midjourney API (placeholder, since Midjourney doesn't have a direct API)
+const generateImageWithMidjourney = async (prompt: string, genre: string): Promise<string> => {
+  try {
+    const apiKey = localStorage.getItem('midjourney_api_key');
+    
+    if (!apiKey) {
+      console.warn("No Midjourney API key found. Using placeholder image instead.");
+      return getPlaceholderImage(genre);
+    }
+    
+    // This is a placeholder. In a real implementation, you would 
+    // use a third-party service that provides access to Midjourney
+    console.log("Midjourney API not directly available. Using placeholder.");
+    
+    // For now, just return a placeholder image
+    return getPlaceholderImage(genre);
+    
+  } catch (error) {
+    console.error("Error with Midjourney image generation:", error);
+    return getPlaceholderImage(genre);
+  }
+};
+
+// Generate image with local Ollama (using a Diffusion model)
+const generateImageWithLocalDiffusion = async (prompt: string, genre: string): Promise<string> => {
+  try {
+    // Using local Ollama for diffusion models
+    console.log("Using local Ollama for image generation:", prompt);
+    
+    // Create a stylized prompt similar to other services
+    const styleMap: Record<string, string> = {
+      fantasy: "fantasy art style, magical, mystical",
+      "sci-fi": "science fiction style, futuristic, high-tech",
+      mystery: "dark atmospheric style, moody lighting, noir aesthetic",
+      romance: "romantic style, soft lighting, warm colors",
+      horror: "horror style, dark, eerie, unsettling",
+      adventure: "adventure style, dynamic, epic landscape",
+      historical: "historical style, period accurate details",
+      "fairy-tale": "fairy tale style, enchanted, whimsical"
+    };
+    
+    const stylePrompt = styleMap[genre] || '';
+    const enhancedPrompt = `${prompt}. ${stylePrompt}`;
+    
+    // Call to Ollama running locally with a diffusion model
+    const response = await fetch("http://localhost:11434/api/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "sdxl", // Assuming the SDXL model is installed in Ollama
+        prompt: enhancedPrompt,
+        stream: false,
+        format: "png"
+      }),
+    });
+    
+    if (!response.ok) {
+      console.error("Ollama diffusion API error:", response.status);
+      throw new Error("Failed to generate image with local Ollama. Make sure the SDXL model is installed.");
+    }
+    
+    // Response should be binary image data
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+    
+  } catch (error) {
+    console.error("Error with local diffusion image generation:", error);
+    return getPlaceholderImage(genre);
+  }
+};
 
 // Helper function to poll for Replicate results
 const pollForResult = async (resultUrl: string, apiKey: string): Promise<string> => {
