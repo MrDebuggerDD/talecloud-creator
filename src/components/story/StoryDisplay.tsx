@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play, Pause, Volume2, VolumeX, Save, Share2, Heart, Loader2, RefreshCw, Image } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Save, Share2, Heart, Loader2, RefreshCw, Image as ImageIcon } from 'lucide-react';
 import { useStory } from '@/context/StoryContext';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -47,7 +47,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
         images.forEach((imgUrl, index) => {
           setImagesLoading(prev => ({ ...prev, [index]: true }));
           
-          const img = new Image();
+          const img = new window.Image();
           img.onload = () => {
             setImagesLoading(prev => ({ ...prev, [index]: false }));
             setImagesError(prev => ({ ...prev, [index]: false }));
@@ -344,7 +344,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       return (
         <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center">
           <div className="text-center">
-            <Image className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+            <ImageIcon className="h-10 w-10 text-gray-400 mx-auto mb-2" />
             <p className="text-gray-500 text-sm">Image failed to load</p>
             <Button
               variant="secondary"
