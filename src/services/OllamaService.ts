@@ -766,4 +766,28 @@ export const generateAudio = async (text: string, voice: string = "onyx"): Promi
     
     // The response is the audio file itself
     const blob = await response.blob();
-    const audioUrl = URL.create
+    const audioUrl = URL.createObjectURL(blob);
+    return audioUrl;
+  } catch (error) {
+    console.error("Error generating audio:", error);
+    throw new Error(`Audio generation failed: ${(error as Error).message || "Unknown error"}`);
+  }
+};
+
+// Helper function to map voice names to ElevenLabs voice IDs
+const getVoiceId = (voice: string): string => {
+  const voiceMap: Record<string, string> = {
+    adam: "pNInz6obpgDQGcFmaJgB", // Adam
+    antoni: "ErXwobaYiN019PkySvjV", // Antoni
+    bella: "EXAVITQu4vr4xnSDxMaL", // Bella
+    elli: "MF3mGyEYCl7XYWbV9V6O", // Elli
+    josh: "TxGEqnHWrfWFTfGW9XjX", // Josh
+    rachel: "21m00Tcm4TlvDq8ikWAM", // Rachel
+    sam: "yoZ06aMxZJJ28mfd3POQ", // Sam
+    domi: "AZnzlk1XvdvUeBnXmlld", // Domi
+    onyx: "IKne3meq5aSn9XLyUdCD", // Onyx
+    default: "IKne3meq5aSn9XLyUdCD" // Default to Onyx
+  };
+  
+  return voiceMap[voice] || voiceMap.default;
+};
