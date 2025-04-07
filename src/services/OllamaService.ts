@@ -420,6 +420,7 @@ const generateImageWithReplicate = async (prompt: string, genre: string): Promis
     console.log("Calling Replicate API with enhanced prompt:", enhancedPrompt);
     console.log("Using Replicate API key:", apiKey.substring(0, 5) + "..." + apiKey.substring(apiKey.length - 5));
     
+    // First try: Direct call to Replicate API
     try {
       // Call Stable Diffusion API via Replicate with improved parameters
       const response = await fetch("https://api.replicate.com/v1/predictions", {
@@ -466,15 +467,18 @@ const generateImageWithReplicate = async (prompt: string, genre: string): Promis
     } catch (fetchError) {
       console.error("Fetch error during Replicate API call:", fetchError);
       
-      // Use demo Stable Diffusion 
-      console.log("Trying alternative public demo API...");
-      const fallbackUrl = `https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1`;
+      // Try a different public API as a fallback
+      console.log("Trying alternative image generation API...");
       
       try {
+        const huggingfaceApiKey = "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"; // A public demo key for this app
+        const fallbackUrl = `https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5`;
+        
         const fallbackResponse = await fetch(fallbackUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "Authorization": `Bearer ${huggingfaceApiKey}`
           },
           body: JSON.stringify({ inputs: enhancedPrompt }),
         });

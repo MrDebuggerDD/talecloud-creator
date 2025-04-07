@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ImageIcon, Wand2 } from 'lucide-react';
+import { ImageIcon, Wand2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ImageModelSelectorProps {
@@ -22,9 +22,9 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
   const [apiKey, setApiKey] = useState<string>('');
   
   const imageProviders = [
-    { id: 'replicate-sd', name: 'Stable Diffusion (Replicate)', requiresKey: true, keyName: 'replicate_api_key' },
-    { id: 'openai-dalle', name: 'DALL-E 3 (OpenAI)', requiresKey: true, keyName: 'openai_api_key' },
-    { id: 'stability-ai', name: 'Stability AI', requiresKey: true, keyName: 'stability_api_key' },
+    { id: 'replicate-sd', name: 'Stable Diffusion (Replicate)', requiresKey: true, keyName: 'replicate_api_key', apiUrl: 'https://replicate.com/account/api-tokens' },
+    { id: 'openai-dalle', name: 'DALL-E 3 (OpenAI)', requiresKey: true, keyName: 'openai_api_key', apiUrl: 'https://platform.openai.com/api-keys' },
+    { id: 'stability-ai', name: 'Stability AI', requiresKey: true, keyName: 'stability_api_key', apiUrl: 'https://platform.stability.ai/account/keys' },
     { id: 'local-diffusion', name: 'Local Diffusion (Ollama)', requiresKey: false }
   ];
 
@@ -75,6 +75,9 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
       setShowApiKeyDialog(false);
       setApiKey('');
       onSelectModel(currentProvider);
+      
+      // Force a page reload to apply the new API key
+      window.location.reload();
     }
   };
 
@@ -82,15 +85,14 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
     return <ImageIcon className="h-4 w-4 mr-2" />;
   };
   
-  // Debug stored keys
-  useEffect(() => {
-    imageProviders.forEach(provider => {
-      if (provider.requiresKey) {
-        const key = localStorage.getItem(provider.keyName);
-        console.log(`${provider.name} key in localStorage:`, key ? "Present" : "Not present");
-      }
-    });
-  }, []);
+  // Display for API Keys
+  const getApiKeyStatus = (providerId: string) => {
+    const provider = getProviderDetails(providerId);
+    if (!provider?.requiresKey) return "No key required";
+    
+    const key = provider.keyName ? localStorage.getItem(provider.keyName) : null;
+    return key ? "API key set ✓" : "API key required";
+  };
 
   return (
     <div className="mb-6">
@@ -124,9 +126,14 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
           <SelectGroup>
             {imageProviders.map((provider) => (
               <SelectItem key={provider.id} value={provider.id}>
-                <div className="flex items-center">
-                  {getProviderIcon(provider.id)}
-                  {provider.name}
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center">
+                    {getProviderIcon(provider.id)}
+                    {provider.name}
+                  </div>
+                  <span className={`text-xs ml-2 ${provider.requiresKey && !localStorage.getItem(provider.keyName) ? 'text-red-500' : 'text-green-500'}`}>
+                    {getApiKeyStatus(provider.id)}
+                  </span>
                 </div>
               </SelectItem>
             ))}
@@ -135,7 +142,7 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
       </Select>
 
       <Dialog open={showApiKeyDialog} onOpenChange={setShowApiKeyDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Enter API Key</DialogTitle>
             <DialogDescription>
@@ -156,22 +163,36 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
                 placeholder="Enter your API key"
               />
             </div>
+            
+            {currentProvider && getProviderDetails(currentProvider)?.apiUrl && (
+              <div className="text-sm text-gray-500 mt-2">
+                <a 
+                  href={getProviderDetails(currentProvider)?.apiUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center text-tale-primary hover:underline"
+                >
+                  Get your API key here
+                  <ExternalLink className="h-3 w-3 ml-1" />
+                </a>
+              </div>
+            )}
           </div>
           
           <DialogFooter>
             <Button variant="outline" onClick={() => {
               setShowApiKeyDialog(false);
-              onSelectModel('replicate-sd'); // Default back to first option
+              onSelectModel('local-diffusion'); // Default to local option that doesn't need API key
             }}>
               Cancel
             </Button>
-            <Button onClick={handleSaveApiKey}>Save</Button>
+            <Button onClick={handleSaveApiKey}>Save & Reload</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <p className="mt-2 text-sm text-gray-500">
-        Select the AI model that will generate images for your story.
+        Select the AI model that will generate images for your story. For best results, use Replicate with a valid API key.
       </p>
     </div>
   );

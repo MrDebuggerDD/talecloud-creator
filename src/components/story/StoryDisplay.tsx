@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play, Pause, Volume2, VolumeX, Save, Share2, Heart, Loader2, RefreshCw, ImageIcon } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Save, Share2, Heart, Loader2, RefreshCw, ImageIcon, AlertCircle } from 'lucide-react';
 import { useStory } from '@/context/StoryContext';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -26,8 +26,8 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
   const [audioUrl, setAudioUrl] = useState(initialAudioUrl || "");
   const [audioError, setAudioError] = useState<string | null>(null);
   const [selectedVoice, setSelectedVoice] = useState("adam");
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isGeneratingImage, setIsGeneratingImage] = useState<Record<number, boolean>>({});
+  const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { id } = useParams<{ id: string }>();
@@ -75,6 +75,66 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       };
     }
   }, [audioUrl]);
+
+  // Check if there are missing images or placeholder images and try to generate them
+  useEffect(() => {
+    if (storyObj && storyObj.images) {
+      const shouldRegenerateImages = storyObj.images.some(img => 
+        !img || img.includes('unsplash.com') || !isValidImageUrl(img)
+      );
+      
+      if (shouldRegenerateImages) {
+        console.log("Found placeholder images, attempting to regenerate...");
+        regenerateMissingImages();
+      }
+    }
+  }, [storyObj]);
+
+  const regenerateMissingImages = async () => {
+    if (!storyObj) return;
+    
+    const imageCount = Math.ceil(content.length / 3);
+    const updatedImages = [...storyObj.images];
+    
+    for (let i = 0; i < imageCount; i++) {
+      if (!updatedImages[i] || updatedImages[i].includes('unsplash.com') || !isValidImageUrl(updatedImages[i])) {
+        setIsGeneratingImage(prev => ({ ...prev, [i]: true }));
+        try {
+          let imagePrompt = storyObj.prompt || "";
+          const imageModel = storyObj.imageModel || 'replicate-sd';
+          
+          if (content.length > 0) {
+            const relatedParagraphIndex = Math.min(i * 3, content.length - 1);
+            
+            if (relatedParagraphIndex < content.length) {
+              imagePrompt = content[relatedParagraphIndex].substring(0, 200);
+            }
+          }
+          
+          console.log(`Regenerating image ${i} with model:`, imageModel, "prompt:", imagePrompt);
+          
+          const newImage = await generateImage(imagePrompt, storyObj.genre, imageModel);
+          
+          if (newImage && !newImage.includes('unsplash.com')) {
+            console.log(`New image ${i} generated:`, newImage);
+            updatedImages[i] = newImage;
+          }
+        } catch (error) {
+          console.error(`Error regenerating image ${i}:`, error);
+          setImageErrors(prev => ({ ...prev, [i]: true }));
+        } finally {
+          setIsGeneratingImage(prev => ({ ...prev, [i]: false }));
+        }
+      }
+    }
+    
+    if (storyObj.images.join(',') !== updatedImages.join(',')) {
+      saveStory({
+        ...storyObj,
+        images: updatedImages
+      });
+    }
+  };
 
   const handleCanPlayThrough = () => {
     console.log("Audio can play through");
@@ -234,13 +294,13 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
   ];
 
   const handleRegenerateImage = async (index: number) => {
-    if (!storyObj || isGeneratingImage) return;
+    if (!storyObj || isGeneratingImage[index]) return;
     
-    setIsGeneratingImage(true);
-    setCurrentImageIndex(index);
+    setIsGeneratingImage(prev => ({ ...prev, [index]: true }));
+    setImageErrors(prev => ({ ...prev, [index]: false }));
     
     try {
-      toast.info("Regenerating image...");
+      toast.info(`Regenerating image ${index + 1}...`);
       
       let imagePrompt = storyObj.prompt || "";
       const imageModel = storyObj.imageModel || 'replicate-sd';
@@ -267,13 +327,14 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       
       if (!apiKey && imageModel !== 'local-diffusion') {
         toast.error(`No API key found for ${imageModel}. Please add it in settings.`);
-        setIsGeneratingImage(false);
+        setIsGeneratingImage(prev => ({ ...prev, [index]: false }));
+        setImageErrors(prev => ({ ...prev, [index]: true }));
         return;
       }
       
       const newImage = await generateImage(imagePrompt, storyObj.genre, imageModel);
       
-      if (newImage && newImage.startsWith('http')) {
+      if (newImage && newImage.startsWith('http') && !newImage.includes('unsplash.com')) {
         console.log("New image generated:", newImage);
         const updatedImages = [...storyObj.images];
         updatedImages[index] = newImage;
@@ -287,18 +348,89 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
         
         toast.success("Image regenerated successfully!");
       } else {
-        toast.error("Failed to generate a new image");
+        setImageErrors(prev => ({ ...prev, [index]: true }));
+        toast.error("Failed to generate a new image. Please check your API key or try again later.");
       }
     } catch (error) {
       console.error("Error regenerating image:", error);
+      setImageErrors(prev => ({ ...prev, [index]: true }));
       toast.error("Failed to regenerate image. Please try again.");
     } finally {
-      setIsGeneratingImage(false);
+      setIsGeneratingImage(prev => ({ ...prev, [index]: false }));
     }
   };
 
   const isValidImageUrl = (url: string): boolean => {
-    return !!url && url.trim() !== "" && url.startsWith("http");
+    return !!url && url.trim() !== "" && url.startsWith("http") && !url.includes('unsplash.com');
+  };
+
+  const getImageComponent = (imageIndex: number) => {
+    const imageUrl = images && images[imageIndex] ? images[imageIndex] : null;
+    const isPlaceholder = !imageUrl || !isValidImageUrl(imageUrl) || imageUrl.includes('unsplash.com');
+    
+    return (
+      <div className="my-8 relative">
+        {isGeneratingImage[imageIndex] ? (
+          <div className="w-full h-64 flex items-center justify-center bg-gray-100 rounded-lg">
+            <div className="text-center">
+              <Loader2 className="h-10 w-10 animate-spin mx-auto mb-2 text-tale-primary" />
+              <p className="text-gray-600">Generating image...</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <img 
+              src={imageUrl || "https://images.unsplash.com/photo-1518709268805-4e9042af9f23"} 
+              alt={`Illustration for "${title}" - scene ${imageIndex + 1}`}
+              className="w-full h-auto rounded-lg shadow-md" 
+              loading="lazy"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23";
+                console.error("Image failed to load, replaced with placeholder");
+              }}
+            />
+            
+            {isPlaceholder && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
+                <div className="text-white text-center p-4">
+                  <AlertCircle className="h-10 w-10 mx-auto mb-2" />
+                  <p>This is a placeholder image</p>
+                  <p className="text-sm mt-1">Click regenerate to create a custom image</p>
+                </div>
+              </div>
+            )}
+            
+            {imageErrors[imageIndex] && (
+              <div className="absolute top-2 left-2 right-2 bg-red-100 text-red-700 p-2 rounded shadow">
+                <p className="text-sm flex items-center"><AlertCircle className="h-4 w-4 mr-1" /> Error generating image. Check your API key.</p>
+              </div>
+            )}
+          </>
+        )}
+        
+        <div className="absolute top-2 right-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="bg-white bg-opacity-70 hover:bg-white"
+            onClick={() => handleRegenerateImage(imageIndex)}
+            disabled={!!isGeneratingImage[imageIndex]}
+          >
+            {isGeneratingImage[imageIndex] ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            <span className="ml-1">Regenerate</span>
+          </Button>
+        </div>
+        
+        <p className="text-xs text-gray-500 mt-1 text-center italic">
+          {isPlaceholder ? "Placeholder image. Click Regenerate to create a custom image." : "AI-generated image based on story content."}
+        </p>
+      </div>
+    );
   };
 
   return (
@@ -412,41 +544,8 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
         <div className="story-text prose max-w-none">
           {content.map((paragraph, index) => (
             <React.Fragment key={index}>
-              {index > 0 && index % 3 === 0 && images && images[Math.floor(index / 3) - 1] && (
-                <div className="my-8 relative">
-                  <img 
-                    src={isValidImageUrl(images[Math.floor(index / 3) - 1]) ? 
-                      images[Math.floor(index / 3) - 1] : 
-                      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23"} 
-                    alt={`Illustration for "${title}" - scene ${Math.floor(index / 3)}`}
-                    className="w-full h-auto rounded-lg shadow-md" 
-                    loading="lazy"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23";
-                      console.error("Image failed to load, replaced with placeholder");
-                    }}
-                  />
-                  <div className="absolute top-2 right-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="bg-white bg-opacity-70 hover:bg-white"
-                      onClick={() => handleRegenerateImage(Math.floor(index / 3) - 1)}
-                      disabled={isGeneratingImage && currentImageIndex === Math.floor(index / 3) - 1}
-                    >
-                      {isGeneratingImage && currentImageIndex === Math.floor(index / 3) - 1 ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4" />
-                      )}
-                      <span className="ml-1">Regenerate</span>
-                    </Button>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1 text-center italic">
-                    Image generated from story content. Click "Regenerate" for a new version.
-                  </p>
-                </div>
+              {index > 0 && index % 3 === 0 && Math.floor(index / 3) - 1 < images.length && (
+                getImageComponent(Math.floor(index / 3) - 1)
               )}
               <p className={`${currentParagraph === index && isPlaying ? 'bg-tale-light bg-opacity-50 p-2 -m-2 rounded transition-all' : ''}`}>
                 {paragraph}
@@ -454,37 +553,8 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
             </React.Fragment>
           ))}
           
-          {content.length > 3 && images && images[Math.floor(content.length / 3)] && (
-            <div className="my-8 relative">
-              <img 
-                src={isValidImageUrl(images[Math.floor(content.length / 3)]) ? 
-                  images[Math.floor(content.length / 3)] : 
-                  "https://images.unsplash.com/photo-1518709268805-4e9042af9f23"} 
-                alt={`Final illustration for "${title}"`}
-                className="w-full h-auto rounded-lg shadow-md" 
-                loading="lazy"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23";
-                }}
-              />
-              <div className="absolute top-2 right-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="bg-white bg-opacity-70 hover:bg-white"
-                  onClick={() => handleRegenerateImage(Math.floor(content.length / 3))}
-                  disabled={isGeneratingImage && currentImageIndex === Math.floor(content.length / 3)}
-                >
-                  {isGeneratingImage && currentImageIndex === Math.floor(content.length / 3) ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                  <span className="ml-1">Regenerate</span>
-                </Button>
-              </div>
-            </div>
+          {content.length > 3 && Math.floor(content.length / 3) < images.length && (
+            getImageComponent(Math.floor(content.length / 3))
           )}
         </div>
       </div>
