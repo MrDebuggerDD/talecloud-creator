@@ -30,7 +30,8 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
       requiresKey: true, 
       keyName: 'replicate_api_key', 
       apiUrl: 'https://replicate.com/account/api-tokens',
-      keyFormat: /^r8_[A-Za-z0-9]{48}$/
+      // Updated to be more lenient and handle different formats
+      keyFormat: /^r8_[A-Za-z0-9]{24,}$/
     },
     { 
       id: 'openai-dalle', 
@@ -38,7 +39,8 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
       requiresKey: true, 
       keyName: 'openai_api_key', 
       apiUrl: 'https://platform.openai.com/api-keys',
-      keyFormat: /^sk-[A-Za-z0-9]{48}$/
+      // Updated to match OpenAI key format, more lenient
+      keyFormat: /^sk-[A-Za-z0-9]{32,}$/
     },
     { 
       id: 'stability-ai', 
@@ -46,7 +48,8 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
       requiresKey: true, 
       keyName: 'stability_api_key', 
       apiUrl: 'https://platform.stability.ai/account/keys',
-      keyFormat: /^sk-[A-Za-z0-9]{36}$/
+      // Updated to match Stability AI key format, more lenient
+      keyFormat: /^sk-[A-Za-z0-9]{24,}$/
     },
     { 
       id: 'local-diffusion', 
@@ -81,11 +84,8 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
       return false;
     }
     
-    if (providerDetails.keyFormat && !providerDetails.keyFormat.test(key.trim())) {
-      setApiKeyError(`Invalid ${providerDetails.name} API key format`);
-      return false;
-    }
-    
+    // Skip format validation for now - just check if key exists
+    // This allows for more flexibility with API key formats
     setApiKeyError(null);
     return true;
   };
@@ -114,9 +114,9 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
         }
       }
       
-      // Add tests for other providers if needed
-      
-      return true; // Skip testing for other providers for now
+      // For other providers, just accept the key without testing
+      // since testing may require additional setup
+      return true;
     } catch (error) {
       console.error("API key validation error:", error);
       setApiKeyError("Failed to validate API key. Check your internet connection.");

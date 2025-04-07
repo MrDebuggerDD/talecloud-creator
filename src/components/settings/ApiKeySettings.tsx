@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Settings } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -25,7 +26,7 @@ const ApiKeySettings: React.FC = () => {
   useEffect(() => {
     // Load API keys from localStorage
     const openaiKey = localStorage.getItem('openai_api_key');
-    const sdKey = localStorage.getItem('stable_diffusion_api_key');
+    const sdKey = localStorage.getItem('replicate_api_key');
     const elKey = localStorage.getItem('elevenlabs_api_key');
     const clKey = localStorage.getItem('claude_api_key');
     const gmKey = localStorage.getItem('gemini_api_key');
@@ -48,14 +49,14 @@ const ApiKeySettings: React.FC = () => {
     }
     
     // For testing/demo purposes, set default keys if not already set
-    if (!localStorage.getItem('stable_diffusion_api_key')) {
-      localStorage.setItem('stable_diffusion_api_key', 'r8_3ZnMuSsi4jfNnUpjHHfSp31GrI4btcx1Sfbn3');
-      if (sdKey) setStableDiffusionApiKey('•'.repeat(16));
+    if (!localStorage.getItem('replicate_api_key')) {
+      localStorage.setItem('replicate_api_key', 'r8_3ZnMuSsi4jfNnUpjHHfSp31GrI4btcx1Sfbn3');
+      if (!sdKey) setStableDiffusionApiKey('•'.repeat(16));
     }
     
     if (!localStorage.getItem('elevenlabs_api_key')) {
       localStorage.setItem('elevenlabs_api_key', 'sk_c91ce9c1e81ef5695bb7dd85ba2d51509f8beec837ca59a2');
-      if (elKey) setElevenlabsApiKey('•'.repeat(16));
+      if (!elKey) setElevenlabsApiKey('•'.repeat(16));
     }
   }, []);
 
@@ -69,7 +70,7 @@ const ApiKeySettings: React.FC = () => {
     }
     
     if (stableDiffusionApiKey && !stableDiffusionApiKey.includes('•')) {
-      localStorage.setItem('stable_diffusion_api_key', stableDiffusionApiKey);
+      localStorage.setItem('replicate_api_key', stableDiffusionApiKey);
     }
     
     if (elevenlabsApiKey && !elevenlabsApiKey.includes('•')) {
