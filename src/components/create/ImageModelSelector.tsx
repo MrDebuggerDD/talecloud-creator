@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ImageIcon, Wand2, ExternalLink } from 'lucide-react';
+import { ImageIcon, Wand2, ExternalLink, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ImageModelSelectorProps {
@@ -20,12 +20,39 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
   const [currentProvider, setCurrentProvider] = useState<string>('');
   const [apiKey, setApiKey] = useState<string>('');
+  const [testingApiKey, setTestingApiKey] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   
   const imageProviders = [
-    { id: 'replicate-sd', name: 'Stable Diffusion (Replicate)', requiresKey: true, keyName: 'replicate_api_key', apiUrl: 'https://replicate.com/account/api-tokens' },
-    { id: 'openai-dalle', name: 'DALL-E 3 (OpenAI)', requiresKey: true, keyName: 'openai_api_key', apiUrl: 'https://platform.openai.com/api-keys' },
-    { id: 'stability-ai', name: 'Stability AI', requiresKey: true, keyName: 'stability_api_key', apiUrl: 'https://platform.stability.ai/account/keys' },
-    { id: 'local-diffusion', name: 'Local Diffusion (Ollama)', requiresKey: false }
+    { 
+      id: 'replicate-sd', 
+      name: 'Stable Diffusion (Replicate)', 
+      requiresKey: true, 
+      keyName: 'replicate_api_key', 
+      apiUrl: 'https://replicate.com/account/api-tokens',
+      keyFormat: /^r8_[A-Za-z0-9]{48}$/
+    },
+    { 
+      id: 'openai-dalle', 
+      name: 'DALL-E 3 (OpenAI)', 
+      requiresKey: true, 
+      keyName: 'openai_api_key', 
+      apiUrl: 'https://platform.openai.com/api-keys',
+      keyFormat: /^sk-[A-Za-z0-9]{48}$/
+    },
+    { 
+      id: 'stability-ai', 
+      name: 'Stability AI', 
+      requiresKey: true, 
+      keyName: 'stability_api_key', 
+      apiUrl: 'https://platform.stability.ai/account/keys',
+      keyFormat: /^sk-[A-Za-z0-9]{36}$/
+    },
+    { 
+      id: 'local-diffusion', 
+      name: 'Local Diffusion (Ollama)', 
+      requiresKey: false 
+    }
   ];
 
   // Find provider details for the selected model
@@ -45,6 +72,60 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
     }
   }, []);
 
+  const validateApiKey = (key: string, provider: string): boolean => {
+    const providerDetails = getProviderDetails(provider);
+    if (!providerDetails) return false;
+    
+    if (!key.trim()) {
+      setApiKeyError("API key cannot be empty");
+      return false;
+    }
+    
+    if (providerDetails.keyFormat && !providerDetails.keyFormat.test(key.trim())) {
+      setApiKeyError(`Invalid ${providerDetails.name} API key format`);
+      return false;
+    }
+    
+    setApiKeyError(null);
+    return true;
+  };
+
+  const testApiKey = async (key: string, provider: string): Promise<boolean> => {
+    const providerDetails = getProviderDetails(provider);
+    if (!providerDetails) return false;
+    
+    setTestingApiKey(true);
+    
+    try {
+      if (provider === 'replicate-sd') {
+        const response = await fetch("https://api.replicate.com/v1/models", {
+          headers: {
+            "Authorization": `Token ${key.trim()}`
+          }
+        });
+        
+        if (response.ok) {
+          toast.success("Replicate API key is valid");
+          return true;
+        } else {
+          const data = await response.json();
+          setApiKeyError(`API key validation failed: ${data.detail || 'Invalid key'}`);
+          return false;
+        }
+      }
+      
+      // Add tests for other providers if needed
+      
+      return true; // Skip testing for other providers for now
+    } catch (error) {
+      console.error("API key validation error:", error);
+      setApiKeyError("Failed to validate API key. Check your internet connection.");
+      return false;
+    } finally {
+      setTestingApiKey(false);
+    }
+  };
+
   const handleModelSelect = (modelId: string) => {
     const providerDetails = getProviderDetails(modelId);
     
@@ -61,24 +142,26 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
     onSelectModel(modelId);
   };
 
-  const handleSaveApiKey = () => {
+  const handleSaveApiKey = async () => {
     const providerDetails = getProviderDetails(currentProvider);
     
-    if (!apiKey.trim()) {
-      toast.error('Please enter an API key');
+    if (!providerDetails?.keyName) return;
+    
+    if (!validateApiKey(apiKey, currentProvider)) {
       return;
     }
     
-    if (providerDetails?.keyName) {
-      localStorage.setItem(providerDetails.keyName, apiKey.trim());
-      toast.success(`${providerDetails.name} API key saved`);
-      setShowApiKeyDialog(false);
-      setApiKey('');
-      onSelectModel(currentProvider);
-      
-      // Force a page reload to apply the new API key
-      window.location.reload();
+    const isValid = await testApiKey(apiKey, currentProvider);
+    
+    if (!isValid) {
+      return;
     }
+    
+    localStorage.setItem(providerDetails.keyName, apiKey.trim());
+    toast.success(`${providerDetails.name} API key saved`);
+    setShowApiKeyDialog(false);
+    setApiKey('');
+    onSelectModel(currentProvider);
   };
 
   const getProviderIcon = (providerId: string) => {
@@ -158,11 +241,21 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
               <Input
                 id="api-key"
                 value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                className="col-span-3"
+                onChange={(e) => {
+                  setApiKey(e.target.value);
+                  setApiKeyError(null);
+                }}
+                className={`col-span-3 ${apiKeyError ? 'border-red-500' : ''}`}
                 placeholder="Enter your API key"
               />
             </div>
+            
+            {apiKeyError && (
+              <div className="col-span-4 text-red-500 text-sm flex items-center">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                {apiKeyError}
+              </div>
+            )}
             
             {currentProvider && getProviderDetails(currentProvider)?.apiUrl && (
               <div className="text-sm text-gray-500 mt-2">
@@ -186,7 +279,12 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
             }}>
               Cancel
             </Button>
-            <Button onClick={handleSaveApiKey}>Save & Reload</Button>
+            <Button 
+              onClick={handleSaveApiKey} 
+              disabled={testingApiKey}
+            >
+              {testingApiKey ? 'Validating...' : 'Save & Continue'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

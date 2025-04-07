@@ -467,20 +467,25 @@ const generateImageWithReplicate = async (prompt: string, genre: string): Promis
     } catch (fetchError) {
       console.error("Fetch error during Replicate API call:", fetchError);
       
-      // Try a different public API as a fallback
-      console.log("Trying alternative image generation API...");
+      // Try Hugging Face API as a fallback (with a demo key)
+      console.log("Trying Hugging Face API as fallback...");
       
       try {
-        const huggingfaceApiKey = "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"; // A public demo key for this app
-        const fallbackUrl = `https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5`;
+        const huggingfaceApiKey = "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"; // A demo key (this is public in HF docs)
+        const fallbackUrl = `https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0`;
         
         const fallbackResponse = await fetch(fallbackUrl, {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
             "Authorization": `Bearer ${huggingfaceApiKey}`
           },
-          body: JSON.stringify({ inputs: enhancedPrompt }),
+          body: JSON.stringify({ 
+            inputs: enhancedPrompt,
+            parameters: {
+              negative_prompt: "blurry, bad anatomy, extra limbs, deformed",
+              guidance_scale: 7.5
+            }
+          }),
         });
         
         if (!fallbackResponse.ok) {

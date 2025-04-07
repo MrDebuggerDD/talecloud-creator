@@ -2,11 +2,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play, Pause, Volume2, VolumeX, Save, Share2, Heart, Loader2, RefreshCw, ImageIcon, AlertCircle } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Save, Share2, Heart, Loader2, RefreshCw, ImageIcon, AlertCircle, Settings } from 'lucide-react';
 import { useStory } from '@/context/StoryContext';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { generateAudio, generateImage } from '@/services/OllamaService';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface StoryDisplayProps {
   title: string;
@@ -28,14 +39,32 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
   const [selectedVoice, setSelectedVoice] = useState("adam");
   const [isGeneratingImage, setIsGeneratingImage] = useState<Record<number, boolean>>({});
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [currentImageProvider, setCurrentImageProvider] = useState("");
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { id } = useParams<{ id: string }>();
   const { currentStory, savedStories, saveStory } = useStory();
+  const navigate = useNavigate();
 
   const storyObj = currentStory?.id === id 
     ? currentStory 
     : savedStories.find(s => s.id === id);
+
+  // Check if there are missing images or placeholder images and try to generate them
+  useEffect(() => {
+    if (storyObj && storyObj.images) {
+      const shouldRegenerateImages = storyObj.images.some(img => 
+        !img || img.includes('unsplash.com') || !isValidImageUrl(img)
+      );
+      
+      if (shouldRegenerateImages) {
+        console.log("Found placeholder images, attempting to regenerate...");
+        regenerateMissingImages();
+      }
+    }
+  }, [storyObj]);
 
   useEffect(() => {
     if (!audioUrl && content.length > 0 && !isGeneratingAudio) {
@@ -76,20 +105,6 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     }
   }, [audioUrl]);
 
-  // Check if there are missing images or placeholder images and try to generate them
-  useEffect(() => {
-    if (storyObj && storyObj.images) {
-      const shouldRegenerateImages = storyObj.images.some(img => 
-        !img || img.includes('unsplash.com') || !isValidImageUrl(img)
-      );
-      
-      if (shouldRegenerateImages) {
-        console.log("Found placeholder images, attempting to regenerate...");
-        regenerateMissingImages();
-      }
-    }
-  }, [storyObj]);
-
   const regenerateMissingImages = async () => {
     if (!storyObj) return;
     
@@ -102,6 +117,22 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
         try {
           let imagePrompt = storyObj.prompt || "";
           const imageModel = storyObj.imageModel || 'replicate-sd';
+          
+          // Check if API key exists
+          const providerKeyMap: Record<string, string> = {
+            'replicate-sd': 'replicate_api_key',
+            'openai-dalle': 'openai_api_key',
+            'stability-ai': 'stability_api_key',
+          };
+          
+          const keyName = providerKeyMap[imageModel];
+          const apiKey = keyName ? localStorage.getItem(keyName) : null;
+          
+          if (!apiKey && imageModel !== 'local-diffusion') {
+            console.warn(`No API key found for ${imageModel}. Skipping image generation.`);
+            setImageErrors(prev => ({ ...prev, [i]: true }));
+            continue;
+          }
           
           if (content.length > 0) {
             const relatedParagraphIndex = Math.min(i * 3, content.length - 1);
@@ -118,6 +149,8 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
           if (newImage && !newImage.includes('unsplash.com')) {
             console.log(`New image ${i} generated:`, newImage);
             updatedImages[i] = newImage;
+          } else {
+            setImageErrors(prev => ({ ...prev, [i]: true }));
           }
         } catch (error) {
           console.error(`Error regenerating image ${i}:`, error);
@@ -296,6 +329,24 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
   const handleRegenerateImage = async (index: number) => {
     if (!storyObj || isGeneratingImage[index]) return;
     
+    const imageModel = storyObj.imageModel || 'replicate-sd';
+    
+    // Check if API key exists
+    const providerKeyMap: Record<string, string> = {
+      'replicate-sd': 'replicate_api_key',
+      'openai-dalle': 'openai_api_key',
+      'stability-ai': 'stability_api_key',
+    };
+    
+    const keyName = providerKeyMap[imageModel];
+    const apiKey = keyName ? localStorage.getItem(keyName) : null;
+    
+    if (!apiKey && imageModel !== 'local-diffusion') {
+      setCurrentImageProvider(imageModel);
+      setShowApiKeyDialog(true);
+      return;
+    }
+    
     setIsGeneratingImage(prev => ({ ...prev, [index]: true }));
     setImageErrors(prev => ({ ...prev, [index]: false }));
     
@@ -303,7 +354,6 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       toast.info(`Regenerating image ${index + 1}...`);
       
       let imagePrompt = storyObj.prompt || "";
-      const imageModel = storyObj.imageModel || 'replicate-sd';
       
       if (content.length > 0) {
         const relatedParagraphIndex = Math.min(index * 3, content.length - 1);
@@ -314,23 +364,6 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       }
       
       console.log("Regenerating image with model:", imageModel, "prompt:", imagePrompt);
-      
-      // Get the API key from localStorage to check if it exists
-      const providerKeyMap: Record<string, string> = {
-        'replicate-sd': 'replicate_api_key',
-        'openai-dalle': 'openai_api_key',
-        'stability-ai': 'stability_api_key',
-      };
-      
-      const keyName = providerKeyMap[imageModel];
-      const apiKey = keyName ? localStorage.getItem(keyName) : null;
-      
-      if (!apiKey && imageModel !== 'local-diffusion') {
-        toast.error(`No API key found for ${imageModel}. Please add it in settings.`);
-        setIsGeneratingImage(prev => ({ ...prev, [index]: false }));
-        setImageErrors(prev => ({ ...prev, [index]: true }));
-        return;
-      }
       
       const newImage = await generateImage(imagePrompt, storyObj.genre, imageModel);
       
@@ -362,6 +395,31 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
 
   const isValidImageUrl = (url: string): boolean => {
     return !!url && url.trim() !== "" && url.startsWith("http") && !url.includes('unsplash.com');
+  };
+
+  const handleSaveApiKey = () => {
+    if (!currentImageProvider || !apiKey.trim()) {
+      toast.error("Please enter a valid API key");
+      return;
+    }
+    
+    const providerKeyMap: Record<string, string> = {
+      'replicate-sd': 'replicate_api_key',
+      'openai-dalle': 'openai_api_key',
+      'stability-ai': 'stability_api_key',
+    };
+    
+    const keyName = providerKeyMap[currentImageProvider];
+    
+    if (keyName) {
+      localStorage.setItem(keyName, apiKey.trim());
+      toast.success(`API key saved successfully`);
+      setShowApiKeyDialog(false);
+      setApiKey("");
+      
+      // Reload the page to apply the new API key
+      window.location.reload();
+    }
   };
 
   const getImageComponent = (imageIndex: number) => {
@@ -409,7 +467,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
           </>
         )}
         
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-2 right-2 flex gap-2">
           <Button
             variant="secondary"
             size="sm"
@@ -423,6 +481,20 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
               <RefreshCw className="h-4 w-4" />
             )}
             <span className="ml-1">Regenerate</span>
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            className="bg-white bg-opacity-70 hover:bg-white p-1 h-8 w-8"
+            onClick={() => {
+              if (storyObj) {
+                setCurrentImageProvider(storyObj.imageModel || 'replicate-sd');
+                setShowApiKeyDialog(true);
+              }
+            }}
+          >
+            <Settings className="h-4 w-4" />
           </Button>
         </div>
         
@@ -558,6 +630,79 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
           )}
         </div>
       </div>
+      
+      <Dialog open={showApiKeyDialog} onOpenChange={setShowApiKeyDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Update API Key</DialogTitle>
+            <DialogDescription>
+              {currentImageProvider === 'replicate-sd' && "Enter your Replicate API key to generate images"}
+              {currentImageProvider === 'openai-dalle' && "Enter your OpenAI API key to generate images"}
+              {currentImageProvider === 'stability-ai' && "Enter your Stability AI API key to generate images"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="api-key" className="text-right">
+                API Key
+              </Label>
+              <Input
+                id="api-key"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="col-span-3"
+                placeholder="Enter your API key"
+              />
+            </div>
+            
+            <div className="text-sm text-gray-500 mt-2">
+              {currentImageProvider === 'replicate-sd' && (
+                <a 
+                  href="https://replicate.com/account/api-tokens" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center text-tale-primary hover:underline"
+                >
+                  Get your Replicate API key here
+                  <ExternalLink className="h-3 w-3 ml-1" />
+                </a>
+              )}
+              {currentImageProvider === 'openai-dalle' && (
+                <a 
+                  href="https://platform.openai.com/api-keys" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center text-tale-primary hover:underline"
+                >
+                  Get your OpenAI API key here
+                  <ExternalLink className="h-3 w-3 ml-1" />
+                </a>
+              )}
+              {currentImageProvider === 'stability-ai' && (
+                <a 
+                  href="https://platform.stability.ai/account/keys" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center text-tale-primary hover:underline"
+                >
+                  Get your Stability AI API key here
+                  <ExternalLink className="h-3 w-3 ml-1" />
+                </a>
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowApiKeyDialog(false);
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveApiKey}>Save & Reload</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
