@@ -1,8 +1,7 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play, Pause, Volume2, VolumeX, Save, Share2, Heart, Loader2, RefreshCw, ImageIcon, AlertCircle, Settings } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Save, Share2, Heart, Loader2, RefreshCw, ImageIcon, AlertCircle, Settings, ExternalLink } from 'lucide-react';
 import { useStory } from '@/context/StoryContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -52,7 +51,6 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     ? currentStory 
     : savedStories.find(s => s.id === id);
 
-  // Check if there are missing images or placeholder images and try to generate them
   useEffect(() => {
     if (storyObj && storyObj.images) {
       const shouldRegenerateImages = storyObj.images.some(img => 
@@ -118,7 +116,6 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
           let imagePrompt = storyObj.prompt || "";
           const imageModel = storyObj.imageModel || 'replicate-sd';
           
-          // Check if API key exists
           const providerKeyMap: Record<string, string> = {
             'replicate-sd': 'replicate_api_key',
             'openai-dalle': 'openai_api_key',
@@ -331,7 +328,6 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
     
     const imageModel = storyObj.imageModel || 'replicate-sd';
     
-    // Check if API key exists
     const providerKeyMap: Record<string, string> = {
       'replicate-sd': 'replicate_api_key',
       'openai-dalle': 'openai_api_key',
@@ -417,7 +413,6 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       setShowApiKeyDialog(false);
       setApiKey("");
       
-      // Reload the page to apply the new API key
       window.location.reload();
     }
   };
