@@ -25,7 +25,6 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
     { id: 'replicate-sd', name: 'Stable Diffusion (Replicate)', requiresKey: true, keyName: 'replicate_api_key' },
     { id: 'openai-dalle', name: 'DALL-E 3 (OpenAI)', requiresKey: true, keyName: 'openai_api_key' },
     { id: 'stability-ai', name: 'Stability AI', requiresKey: true, keyName: 'stability_api_key' },
-    { id: 'midjourney-api', name: 'Midjourney (via API)', requiresKey: true, keyName: 'midjourney_api_key' },
     { id: 'local-diffusion', name: 'Local Diffusion (Ollama)', requiresKey: false }
   ];
 
@@ -101,6 +100,20 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
             Image Generation Model
           </label>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-2 p-1 h-8 w-8"
+          onClick={() => {
+            const provider = getProviderDetails(selectedModel);
+            if (provider?.requiresKey) {
+              setCurrentProvider(selectedModel);
+              setShowApiKeyDialog(true);
+            }
+          }}
+        >
+          <Wand2 className="h-4 w-4" />
+        </Button>
       </div>
 
       <Select value={selectedModel} onValueChange={handleModelSelect}>

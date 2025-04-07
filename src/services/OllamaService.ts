@@ -378,8 +378,6 @@ export const generateImage = async (prompt: string, genre: string, imageModel: s
       return await generateImageWithOpenAI(prompt, genre);
     } else if (imageModel === 'stability-ai') {
       return await generateImageWithStabilityAI(prompt, genre);
-    } else if (imageModel === 'midjourney-api') {
-      return await generateImageWithMidjourney(prompt, genre);
     } else if (imageModel === 'local-diffusion') {
       return await generateImageWithLocalDiffusion(prompt, genre);
     } else {
@@ -396,7 +394,7 @@ export const generateImage = async (prompt: string, genre: string, imageModel: s
 // Generate image with Replicate API (Stable Diffusion)
 const generateImageWithReplicate = async (prompt: string, genre: string): Promise<string> => {
   try {
-    // Get Stable Diffusion API key from localStorage
+    // Get API key from localStorage
     const apiKey = localStorage.getItem('replicate_api_key');
     
     if (!apiKey) {
@@ -420,44 +418,78 @@ const generateImageWithReplicate = async (prompt: string, genre: string): Promis
     const enhancedPrompt = `${stylePrompt}, ${prompt.substring(0, 200)}`;
     
     console.log("Calling Replicate API with enhanced prompt:", enhancedPrompt);
+    console.log("Using Replicate API key:", apiKey.substring(0, 5) + "..." + apiKey.substring(apiKey.length - 5));
     
-    // Call Stable Diffusion API via Replicate with improved parameters
-    const response = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Token ${apiKey}`,
-      },
-      body: JSON.stringify({
-        version: "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b", // SD v2.1
-        input: {
-          prompt: enhancedPrompt,
-          negative_prompt: "blurry, bad anatomy, extra limbs, deformed, disfigured, text, watermark, signature, low quality, pixelated",
-          width: 768,
-          height: 512,
-          num_outputs: 1,
-          guidance_scale: 7.5,  // Increased for better prompt adherence
-          num_inference_steps: 30, // More steps for better quality
-          seed: Math.floor(Math.random() * 1000000) // Random seed for variety
+    try {
+      // Call Stable Diffusion API via Replicate with improved parameters
+      const response = await fetch("https://api.replicate.com/v1/predictions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Token ${apiKey}`,
+        },
+        body: JSON.stringify({
+          version: "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b", // SD v2.1
+          input: {
+            prompt: enhancedPrompt,
+            negative_prompt: "blurry, bad anatomy, extra limbs, deformed, disfigured, text, watermark, signature, low quality, pixelated",
+            width: 768,
+            height: 512,
+            num_outputs: 1,
+            guidance_scale: 7.5,
+            num_inference_steps: 30,
+            seed: Math.floor(Math.random() * 1000000)
+          }
+        }),
+      });
+      
+      if (!response.ok) {
+        console.error("Replicate API error status:", response.status);
+        const errorText = await response.text();
+        console.error("Replicate API error:", errorText);
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("Replicate prediction started:", data.id);
+      
+      // Poll for the result (Replicate runs asynchronously)
+      let imageUrl = await pollForResult(data.urls.get, apiKey);
+      console.log("Generated image URL:", imageUrl);
+      
+      if (!imageUrl) {
+        console.warn("Failed to get image URL from Replicate. Using placeholder instead.");
+        return getPlaceholderImage(genre);
+      }
+      
+      return imageUrl;
+    } catch (fetchError) {
+      console.error("Fetch error during Replicate API call:", fetchError);
+      
+      // Use demo Stable Diffusion 
+      console.log("Trying alternative public demo API...");
+      const fallbackUrl = `https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1`;
+      
+      try {
+        const fallbackResponse = await fetch(fallbackUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ inputs: enhancedPrompt }),
+        });
+        
+        if (!fallbackResponse.ok) {
+          throw new Error(`Fallback API error: ${fallbackResponse.status}`);
         }
-      }),
-    });
-    
-    if (!response.ok) {
-      console.error("Replicate API error status:", response.status);
-      const errorText = await response.text();
-      console.error("Replicate API error:", errorText);
-      throw new Error(`API error: ${response.status}`);
+        
+        const blob = await fallbackResponse.blob();
+        return URL.createObjectURL(blob);
+      } catch (fallbackError) {
+        console.error("Fallback API also failed:", fallbackError);
+        return getPlaceholderImage(genre);
+      }
     }
-    
-    const data = await response.json();
-    console.log("Replicate prediction started:", data.id);
-    
-    // Poll for the result (Replicate runs asynchronously)
-    let imageUrl = await pollForResult(data.urls.get, apiKey);
-    console.log("Generated image URL:", imageUrl);
-    return imageUrl || getPlaceholderImage(genre);
-    
   } catch (error) {
     console.error("Error with Replicate generation:", error);
     return getPlaceholderImage(genre);
@@ -671,6 +703,7 @@ const pollForResult = async (resultUrl: string, apiKey: string): Promise<string>
   
   while (attempts < maxAttempts) {
     try {
+      console.log(`Polling attempt ${attempts + 1}/${maxAttempts} for result...`);
       const response = await fetch(resultUrl, {
         headers: {
           "Authorization": `Token ${apiKey}`,
@@ -678,6 +711,7 @@ const pollForResult = async (resultUrl: string, apiKey: string): Promise<string>
       });
       
       if (!response.ok) {
+        console.error(`Poll response not OK: ${response.status}`, response.statusText);
         throw new Error(`Poll error: ${response.status}`);
       }
       
@@ -693,8 +727,9 @@ const pollForResult = async (resultUrl: string, apiKey: string): Promise<string>
         throw new Error(`Image generation failed: ${data.error || "Unknown error"}`);
       }
       
-      // Wait before trying again
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait before trying again (increasing delay to avoid rate limits)
+      const delay = Math.min(2000 + attempts * 500, 5000);
+      await new Promise(resolve => setTimeout(resolve, delay));
       attempts++;
     } catch (error) {
       console.error("Error polling for image result:", error);

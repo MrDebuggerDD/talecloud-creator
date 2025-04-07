@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -253,9 +254,26 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
       }
       
       console.log("Regenerating image with model:", imageModel, "prompt:", imagePrompt);
+      
+      // Get the API key from localStorage to check if it exists
+      const providerKeyMap: Record<string, string> = {
+        'replicate-sd': 'replicate_api_key',
+        'openai-dalle': 'openai_api_key',
+        'stability-ai': 'stability_api_key',
+      };
+      
+      const keyName = providerKeyMap[imageModel];
+      const apiKey = keyName ? localStorage.getItem(keyName) : null;
+      
+      if (!apiKey && imageModel !== 'local-diffusion') {
+        toast.error(`No API key found for ${imageModel}. Please add it in settings.`);
+        setIsGeneratingImage(false);
+        return;
+      }
+      
       const newImage = await generateImage(imagePrompt, storyObj.genre, imageModel);
       
-      if (newImage) {
+      if (newImage && newImage.startsWith('http')) {
         console.log("New image generated:", newImage);
         const updatedImages = [...storyObj.images];
         updatedImages[index] = newImage;
@@ -280,7 +298,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({ title, content, images, aud
   };
 
   const isValidImageUrl = (url: string): boolean => {
-    return url && url.trim() !== "" && url.startsWith("http");
+    return !!url && url.trim() !== "" && url.startsWith("http");
   };
 
   return (
